@@ -43,8 +43,9 @@ dependencies {
     compileOnly("com.github.GTNewHorizons:ForestryMC:4.12.0:dev")
 
     // Hard dependencies
-    api("com.github.MrFuzzihead:Computercraft-Legacy:2.3.9")
-    // CurseForge jars are published with SRG/MCP names, so they have to be deobfuscated for RFG.
+    // The JitPack artifacts (ComputerCraft-Legacy, CurseForge files) are published with SRG/MCP names, so they
+    // have to be deobfuscated for RFG, otherwise they fail to link against the deobfuscated dev Minecraft.
+    api("com.github.MrFuzzihead:Computercraft-Legacy:2.3.9:dev")
     api(rfg.deobf("curse.maven:CollectiveFramework-232966:2255921"))
 
     // Libraries that are bundled into the mod jar (see addon.gradle)
