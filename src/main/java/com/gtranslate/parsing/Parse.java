@@ -1,9 +1,8 @@
 package com.gtranslate.parsing;
 
-
 public interface Parse {
 
-   void parse();
+    void parse();
 
-   void appendURL();
+    void appendURL();
 }

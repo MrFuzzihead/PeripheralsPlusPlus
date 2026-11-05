@@ -1,10 +1,11 @@
 package com.austinv11.peripheralsplusplus.client.models;
 
-import cpw.mods.fml.relauncher.Side;
-import cpw.mods.fml.relauncher.SideOnly;
 import net.minecraft.client.model.ModelBase;
 import net.minecraft.client.model.ModelRenderer;
 import net.minecraft.entity.Entity;
+
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
 
 /**
  * Antenna2 - austinv11
@@ -12,6 +13,7 @@ import net.minecraft.entity.Entity;
  */
 @SideOnly(Side.CLIENT)
 public class ModelAntenna extends ModelBase {
+
     public ModelRenderer Base;
     public ModelRenderer Base1;
     public ModelRenderer DishBase;

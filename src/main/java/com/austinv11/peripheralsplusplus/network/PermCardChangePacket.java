@@ -1,16 +1,16 @@
 package com.austinv11.peripheralsplusplus.network;
 
-import com.austinv11.peripheralsplusplus.PeripheralsPlusPlus;
+import net.minecraft.item.ItemStack;
+import net.minecraft.nbt.NBTTagCompound;
+
 import cpw.mods.fml.common.network.ByteBufUtils;
 import cpw.mods.fml.common.network.simpleimpl.IMessage;
 import cpw.mods.fml.common.network.simpleimpl.IMessageHandler;
 import cpw.mods.fml.common.network.simpleimpl.MessageContext;
 import io.netty.buffer.ByteBuf;
-import net.minecraft.item.ItemStack;
-import net.minecraft.nbt.NBTTagCompound;
 
-public class PermCardChangePacket implements IMessage
-{
+public class PermCardChangePacket implements IMessage {
+
     private boolean canGetStacks, canWithdraw, canDeposit;
 
     public PermCardChangePacket() {}
@@ -39,9 +39,9 @@ public class PermCardChangePacket implements IMessage
     }
 
     public static class PermCardChangePacketHandler implements IMessageHandler<PermCardChangePacket, IMessage> {
+
         @Override
-        public IMessage onMessage(PermCardChangePacket message, MessageContext ctx)
-        {
+        public IMessage onMessage(PermCardChangePacket message, MessageContext ctx) {
             ItemStack permCard = ctx.getServerHandler().playerEntity.getCurrentEquippedItem();
             if (permCard != null) {
                 NBTTagCompound permCardTag = permCard.getTagCompound();

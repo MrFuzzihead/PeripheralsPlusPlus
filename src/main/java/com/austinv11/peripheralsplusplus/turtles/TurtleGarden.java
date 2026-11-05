@@ -1,18 +1,20 @@
 package com.austinv11.peripheralsplusplus.turtles;
 
-import com.austinv11.peripheralsplusplus.init.ModBlocks;
-import com.austinv11.peripheralsplusplus.reference.Reference;
-import com.austinv11.peripheralsplusplus.turtles.peripherals.PeripheralGarden;
-import cpw.mods.fml.relauncher.Side;
-import cpw.mods.fml.relauncher.SideOnly;
-import dan200.computercraft.api.peripheral.IPeripheral;
-import dan200.computercraft.api.turtle.*;
 import net.minecraft.init.Items;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.IIcon;
 
-public class TurtleGarden implements ITurtleUpgrade
-{
+import com.austinv11.peripheralsplusplus.init.ModBlocks;
+import com.austinv11.peripheralsplusplus.reference.Reference;
+import com.austinv11.peripheralsplusplus.turtles.peripherals.PeripheralGarden;
+
+import cpw.mods.fml.relauncher.Side;
+import cpw.mods.fml.relauncher.SideOnly;
+import dan200.computercraft.api.peripheral.IPeripheral;
+import dan200.computercraft.api.turtle.*;
+
+public class TurtleGarden implements ITurtleUpgrade {
+
     @Override
     public int getUpgradeID() {
         return Reference.GARDEN_UPGRADE;
@@ -46,7 +48,7 @@ public class TurtleGarden implements ITurtleUpgrade
     @SideOnly(Side.CLIENT)
     @Override
     public IIcon getIcon(ITurtleAccess turtle, TurtleSide side) {
-        return ModBlocks.dummyBlock.getIcon(0,3);
+        return ModBlocks.dummyBlock.getIcon(0, 3);
     }
 
     @Override
