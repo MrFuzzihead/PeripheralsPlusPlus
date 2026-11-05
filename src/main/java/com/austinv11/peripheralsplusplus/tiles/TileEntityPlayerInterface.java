@@ -45,7 +45,7 @@ public class TileEntityPlayerInterface extends MountedTileEntityInventory {
                     throw new LuaException("Bad argument #1 (expected string)");
                 }
                 // Check that the specified player exists
-                for (EntityPlayer player : (Iterable<EntityPlayer>) MinecraftServer.getServer()
+                for (EntityPlayer player : (Iterable<? extends EntityPlayer>) MinecraftServer.getServer()
                     .getConfigurationManager().playerEntityList) {
                     if (player.getDisplayName()
                         .equals(arguments[0])) {

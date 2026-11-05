@@ -1,6 +1,8 @@
 package com.austinv11.peripheralsplusplus.tiles;
 
-import java.util.*;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.Iterator;
 
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockContainer;
@@ -17,7 +19,12 @@ import com.austinv11.peripheralsplusplus.reference.Config;
 
 import appeng.api.AEApi;
 import appeng.api.config.Actionable;
-import appeng.api.networking.*;
+import appeng.api.networking.GridFlags;
+import appeng.api.networking.GridNotification;
+import appeng.api.networking.IGrid;
+import appeng.api.networking.IGridBlock;
+import appeng.api.networking.IGridHost;
+import appeng.api.networking.IGridNode;
 import appeng.api.networking.crafting.ICraftingCallback;
 import appeng.api.networking.crafting.ICraftingGrid;
 import appeng.api.networking.crafting.ICraftingJob;
@@ -29,7 +36,6 @@ import appeng.api.storage.data.IAEItemStack;
 import appeng.api.util.AECableType;
 import appeng.api.util.AEColor;
 import appeng.api.util.DimensionalCoord;
-import appeng.core.WorldSettings;
 import cpw.mods.fml.common.Optional;
 import cpw.mods.fml.common.registry.GameRegistry;
 import dan200.computercraft.api.lua.ILuaContext;
@@ -84,8 +90,10 @@ public class TileEntityMEBridge extends MountedTileEntity implements IActionHost
     public void updateEntity() {
         if (!worldObj.isRemote) if (!initialized) {
             if (placed != null) getNode().setPlayerID(
-                WorldSettings.getInstance()
-                    .getPlayerID(placed.getGameProfile()));
+                AEApi.instance()
+                    .registries()
+                    .players()
+                    .getID(placed.getGameProfile()));
             getNode().updateState();
             initialized = true;
         }
@@ -222,9 +230,9 @@ public class TileEntityMEBridge extends MountedTileEntity implements IActionHost
                                         new MachineSource((IActionHost) getMachine()));
                                     for (IComputerAccess comp : computers.keySet()) comp.queueEvent(
                                         "craftingComplete",
-                                        new Object[] { Item.itemRegistry.getNameForObject(
-                                            job.getOutput()
-                                                .getItem()),
+                                        new Object[] {
+                                            Item.itemRegistry
+                                                .getNameForObject(((IAEItemStack) job.getOutput()).getItem()),
                                             job.getOutput()
                                                 .getStackSize(),
                                             job.getByteTotal() });

@@ -1,6 +1,6 @@
 package com.austinv11.peripheralsplusplus.lua;
 
-import java.awt.*;
+import java.awt.Color;
 import java.util.ArrayDeque;
 import java.util.Stack;
 import java.util.UUID;
@@ -11,7 +11,14 @@ import net.minecraft.entity.player.EntityPlayerMP;
 import com.austinv11.peripheralsplusplus.PeripheralsPlusPlus;
 import com.austinv11.peripheralsplusplus.network.CommandPacket;
 import com.austinv11.peripheralsplusplus.network.GuiPacket;
-import com.austinv11.peripheralsplusplus.smarthelmet.*;
+import com.austinv11.peripheralsplusplus.smarthelmet.AddButtonCommand;
+import com.austinv11.peripheralsplusplus.smarthelmet.AddTextFieldCommand;
+import com.austinv11.peripheralsplusplus.smarthelmet.DrawBackgroundCommand;
+import com.austinv11.peripheralsplusplus.smarthelmet.DrawRectangleCommand;
+import com.austinv11.peripheralsplusplus.smarthelmet.DrawStringCommand;
+import com.austinv11.peripheralsplusplus.smarthelmet.DrawTextureCommand;
+import com.austinv11.peripheralsplusplus.smarthelmet.HelmetCommand;
+import com.austinv11.peripheralsplusplus.smarthelmet.MessageCommand;
 import com.austinv11.peripheralsplusplus.utils.Util;
 
 import dan200.computercraft.api.lua.ILuaContext;

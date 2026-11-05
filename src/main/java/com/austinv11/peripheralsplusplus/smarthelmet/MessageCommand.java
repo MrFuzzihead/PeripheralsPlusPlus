@@ -1,6 +1,6 @@
 package com.austinv11.peripheralsplusplus.smarthelmet;
 
-import java.awt.*;
+import java.awt.Color;
 import java.util.HashMap;
 import java.util.Stack;
 

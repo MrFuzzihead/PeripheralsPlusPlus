@@ -2,12 +2,11 @@ package com.austinv11.peripheralsplusplus.utils;
 
 import java.io.IOException;
 import java.io.InputStream;
+import javazoom.jl.decoder.JavaLayerException;
 
 import com.gtranslate.Audio;
 import com.gtranslate.Language;
 import com.gtranslate.Translator;
-
-import rehost.javazoom.jl.decoder.JavaLayerException;
 
 public class TranslateUtils {
 

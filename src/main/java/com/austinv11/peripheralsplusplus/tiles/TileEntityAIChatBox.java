@@ -1,10 +1,17 @@
 package com.austinv11.peripheralsplusplus.tiles;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.UUID;
 
 import com.austinv11.peripheralsplusplus.cleverbot.AIChatRequest;
 import com.austinv11.peripheralsplusplus.reference.Config;
-import com.google.code.chatterbotapi.*;
+import com.google.code.chatterbotapi.ChatterBot;
+import com.google.code.chatterbotapi.ChatterBotFactory;
+import com.google.code.chatterbotapi.ChatterBotSession;
+import com.google.code.chatterbotapi.ChatterBotType;
 
 import dan200.computercraft.api.lua.ILuaContext;
 import dan200.computercraft.api.lua.ILuaObject;

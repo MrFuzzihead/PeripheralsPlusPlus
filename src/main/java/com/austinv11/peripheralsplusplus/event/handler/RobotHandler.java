@@ -1,6 +1,7 @@
 package com.austinv11.peripheralsplusplus.event.handler;
 
-import java.awt.*;
+import java.awt.AWTException;
+import java.awt.Robot;
 import java.awt.event.KeyEvent;
 import java.lang.reflect.Field;
 import java.util.concurrent.CopyOnWriteArrayList;

@@ -2,7 +2,12 @@ package com.austinv11.peripheralsplusplus.utils;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.EnumSet;
+import java.util.HashMap;
+import java.util.Iterator;
+import java.util.List;
 
 import net.minecraft.entity.SharedMonsterAttributes;
 import net.minecraft.entity.ai.attributes.AttributeModifier;
@@ -142,7 +147,7 @@ public class Util {
     }
 
     public static EntityPlayer getPlayer(String ign) {
-        List<EntityPlayer> players = MinecraftServer.getServer()
+        List<? extends EntityPlayer> players = MinecraftServer.getServer()
             .getConfigurationManager().playerEntityList;
         for (EntityPlayer p : players) {
             if (p.getDisplayName()

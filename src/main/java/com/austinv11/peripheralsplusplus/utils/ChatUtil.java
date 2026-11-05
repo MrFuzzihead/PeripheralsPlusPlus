@@ -19,12 +19,12 @@ public class ChatUtil {
 
     public static void sendMessage(TileEntity te, String text, double range, boolean unlimitedY) {
         if (range == Double.MAX_VALUE) {
-            for (EntityPlayer player : (Iterable<EntityPlayer>) MinecraftServer.getServer()
+            for (EntityPlayer player : (Iterable<? extends EntityPlayer>) MinecraftServer.getServer()
                 .getConfigurationManager().playerEntityList) {
                 PeripheralsPlusPlus.NETWORK.sendTo(new ChatPacket(text), (EntityPlayerMP) player);
             }
         } else if (unlimitedY) {
-            for (EntityPlayer player : (Iterable<EntityPlayer>) te.getWorldObj().playerEntities) {
+            for (EntityPlayer player : (Iterable<? extends EntityPlayer>) te.getWorldObj().playerEntities) {
                 Vec3 playerPos = Vec3.createVectorHelper(player.posX, player.posY, player.posZ);
                 playerPos.yCoord = te.yCoord;
                 if (playerPos.distanceTo(Vec3.createVectorHelper(te.xCoord, te.yCoord, te.zCoord)) > range) continue;
@@ -55,7 +55,7 @@ public class ChatUtil {
     }
 
     private static EntityPlayer getPlayer(String ign, World w) {
-        List<EntityPlayer> players = w == null ? MinecraftServer.getServer()
+        List<? extends EntityPlayer> players = w == null ? MinecraftServer.getServer()
             .getConfigurationManager().playerEntityList : w.playerEntities;
         for (EntityPlayer p : players) {
             if (p.getDisplayName()

@@ -1,6 +1,6 @@
 package com.austinv11.peripheralsplusplus.smarthelmet;
 
-import java.awt.*;
+import java.awt.Color;
 
 import net.minecraft.client.gui.Gui;
 import net.minecraft.nbt.NBTTagCompound;

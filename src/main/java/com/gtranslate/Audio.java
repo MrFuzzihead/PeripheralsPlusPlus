@@ -6,8 +6,8 @@ import java.io.InputStream;
 import java.net.URL;
 import java.net.URLConnection;
 
-import rehost.javazoom.jl.decoder.JavaLayerException;
-import rehost.javazoom.jl.player.Player;
+import javazoom.jl.decoder.JavaLayerException;
+import javazoom.jl.player.Player;
 
 public class Audio {
 

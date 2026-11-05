@@ -2,7 +2,15 @@ package com.austinv11.peripheralsplusplus.init;
 
 import net.minecraft.item.Item;
 
-import com.austinv11.peripheralsplusplus.items.*;
+import com.austinv11.peripheralsplusplus.items.ItemChunkLoaderUpgrade;
+import com.austinv11.peripheralsplusplus.items.ItemFeederUpgrade;
+import com.austinv11.peripheralsplusplus.items.ItemMotionDetector;
+import com.austinv11.peripheralsplusplus.items.ItemNanoSwarm;
+import com.austinv11.peripheralsplusplus.items.ItemPPP;
+import com.austinv11.peripheralsplusplus.items.ItemPermissionsCard;
+import com.austinv11.peripheralsplusplus.items.ItemResupplyUpgrade;
+import com.austinv11.peripheralsplusplus.items.ItemSmartHelmet;
+import com.austinv11.peripheralsplusplus.items.ItemTank;
 import com.austinv11.peripheralsplusplus.reference.Reference;
 
 import cpw.mods.fml.common.registry.GameRegistry;
