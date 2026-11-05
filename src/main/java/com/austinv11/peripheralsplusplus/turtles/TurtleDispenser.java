@@ -4,7 +4,6 @@ import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.IIcon;
 
-import com.austinv11.peripheralsplusplus.mixins.early.BlockDispenserAccessor;
 import com.austinv11.peripheralsplusplus.reference.Reference;
 import com.austinv11.peripheralsplusplus.turtles.peripherals.PeripheralDispenser;
 
@@ -50,7 +49,10 @@ public class TurtleDispenser implements ITurtleUpgrade {
 
     @Override
     public IIcon getIcon(ITurtleAccess turtle, TurtleSide side) {
-        return ((BlockDispenserAccessor) Blocks.dispenser).ppp$getDispenserTopIcon();
+        // The dispenser's horizontal front texture. BlockDispenser.getIcon returns it when the requested side matches
+        // a horizontal facing, so (3, 3) selects it without touching the protected, unmapped icon field the old
+        // access transformer exposed.
+        return Blocks.dispenser.getIcon(3, 3);
     }
 
     @Override

@@ -13,11 +13,7 @@ public enum Mixins implements IMixins {
 
     /** Accessors and invokers that replace the old {@code ppp_at.cfg} access transformer. */
     VANILLA_ACCESSORS(new MixinBuilder().setPhase(Phase.EARLY)
-        .addCommonMixins(
-            "EntityLivingAccessor",
-            "EntityLivingBaseAccessor",
-            "ItemBucketAccessor",
-            "BlockDispenserAccessor")
+        .addCommonMixins("EntityLivingAccessor", "EntityLivingBaseAccessor", "ItemBucketAccessor")
         .addClientMixins("GuiAccessor")),
 
     /**
