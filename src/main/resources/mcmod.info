@@ -1,11 +1,11 @@
 {
   "modListVersion": 2,
   "modList": [{
-    "modid": "PeripheralsPlusPlus",
-    "name": "Peripherals++",
+    "modid": "${modId}",
+    "name": "${modName}",
     "description": "A psuedo-port of MiscPeripherals",
-    "version": "@VERSION@",
-    "mcversion": "1.7.10",
+    "version": "${modVersion}",
+    "mcversion": "${minecraftVersion}",
     "url": "austinv11.com",
     "updateUrl": "",
     "authorList": ["austinv11"],

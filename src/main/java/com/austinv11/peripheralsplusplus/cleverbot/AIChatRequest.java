@@ -5,37 +5,41 @@ import com.austinv11.peripheralsplusplus.tiles.TileEntityAIChatBox;
 import com.austinv11.peripheralsplusplus.tiles.TileEntityAIChatBox.BotSessionLuaObject;
 
 public class AIChatRequest {
-	public static final String EVENT = "ai_response";
 
-	private final TileEntityAIChatBox tileEntity;
-	private final BotSessionLuaObject session;
-	private final String message;
+    public static final String EVENT = "ai_response";
 
-	//private boolean complete = false;
-	private boolean success = false;
-	private String response = null;
+    private final TileEntityAIChatBox tileEntity;
+    private final BotSessionLuaObject session;
+    private final String message;
 
-	public AIChatRequest(final TileEntityAIChatBox tileEntity, final BotSessionLuaObject session, final String message) {
-		this.tileEntity = tileEntity;
-		this.session = session;
-		this.message = message;
+    // private boolean complete = false;
+    private boolean success = false;
+    private String response = null;
 
-		new SimpleRunnable() {
-			
-			@Override
-			public void run() {
-				try {
-					response = session.think(message);
-					success = true;
-				} catch (Exception e) {
-					response = e.toString();
-					success = false;
-				}
+    public AIChatRequest(final TileEntityAIChatBox tileEntity, final BotSessionLuaObject session,
+        final String message) {
+        this.tileEntity = tileEntity;
+        this.session = session;
+        this.message = message;
 
-				// Queue event
-				// ai_response: string side, bool success, string response, string uuid
-				tileEntity.sendEvent(new Object[]{ success, response, session.getUUID().toString() });
-			}
-		}.start();
-	}
+        new SimpleRunnable() {
+
+            @Override
+            public void run() {
+                try {
+                    response = session.think(message);
+                    success = true;
+                } catch (Exception e) {
+                    response = e.toString();
+                    success = false;
+                }
+
+                // Queue event
+                // ai_response: string side, bool success, string response, string uuid
+                tileEntity.sendEvent(
+                    new Object[] { success, response, session.getUUID()
+                        .toString() });
+            }
+        }.start();
+    }
 }

@@ -1,0 +1,19 @@
+name: Build and test
+
+on:
+  pull_request:
+    branches: [ master, main ]
+  push:
+    branches: [ master, main ]
+
+jobs:
+  build-and-test:
+    uses: GTNewHorizons/GTNH-Actions-Workflows/.github/workflows/build-and-test.yml@master
+    secrets: inherit
+    with:
+      # ComputerCraft 3 declares a hard dependency on lwjgl3ify, which needs a modern JVM. The reusable
+      # workflow's server step runs the plain (Java 8) `runServer` task, so it cannot load ComputerCraft at
+      # all ("The mod ComputerCraft requires mods [lwjgl3ify] to be available") and always fails. Server
+      # coverage has to use the modern stack (`runServer21`), which is not selectable through this
+      # workflow's inputs, so skip the Java 8 server run here.
+      client-only: true

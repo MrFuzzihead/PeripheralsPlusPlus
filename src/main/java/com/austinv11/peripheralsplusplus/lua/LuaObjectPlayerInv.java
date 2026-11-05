@@ -1,11 +1,8 @@
 package com.austinv11.peripheralsplusplus.lua;
 
-import com.austinv11.collectiveframework.minecraft.utils.Location;
-import com.austinv11.peripheralsplusplus.reference.Config;
-import com.austinv11.peripheralsplusplus.tiles.TileEntityPlayerInterface;
-import dan200.computercraft.api.lua.ILuaContext;
-import dan200.computercraft.api.lua.ILuaObject;
-import dan200.computercraft.api.lua.LuaException;
+import java.util.ArrayList;
+import java.util.HashMap;
+
 import net.minecraft.block.Block;
 import net.minecraft.block.BlockContainer;
 import net.minecraft.entity.player.EntityPlayer;
@@ -15,10 +12,16 @@ import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraftforge.common.util.ForgeDirection;
 
-import java.util.ArrayList;
-import java.util.HashMap;
+import com.austinv11.collectiveframework.minecraft.utils.Location;
+import com.austinv11.peripheralsplusplus.reference.Config;
+import com.austinv11.peripheralsplusplus.tiles.TileEntityPlayerInterface;
+
+import dan200.computercraft.api.lua.ILuaContext;
+import dan200.computercraft.api.lua.ILuaObject;
+import dan200.computercraft.api.lua.LuaException;
 
 public class LuaObjectPlayerInv implements ILuaObject {
+
     private InventoryPlayer inv;
     private TileEntityPlayerInterface playerInterface;
     private ItemStack permCard;
@@ -30,7 +33,8 @@ public class LuaObjectPlayerInv implements ILuaObject {
     }
 
     @Override
-    public Object[] callMethod(ILuaContext context, int method, Object[] arguments) throws LuaException, InterruptedException {
+    public Object[] callMethod(ILuaContext context, int method, Object[] arguments)
+        throws LuaException, InterruptedException {
         ItemStack origStack;
         ItemStack newStack;
         switch (method) {
@@ -43,7 +47,7 @@ public class LuaObjectPlayerInv implements ILuaObject {
                 }
 
                 if (hasGetStacksPermission()) {
-                    return new Object[] {getObjectFromStack(inv.getStackInSlot(((Double) arguments[0]).intValue()))};
+                    return new Object[] { getObjectFromStack(inv.getStackInSlot(((Double) arguments[0]).intValue())) };
                 }
                 break;
             case 1:
@@ -67,13 +71,13 @@ public class LuaObjectPlayerInv implements ILuaObject {
                         return new Object[0];
                     }
 
-
-                    newStack = inv.decrStackSize(((Double) arguments[0]).intValue(), ((Double) arguments[1]).intValue());
+                    newStack = inv
+                        .decrStackSize(((Double) arguments[0]).intValue(), ((Double) arguments[1]).intValue());
                     if (!addStackToInv(getOutputInventory(), newStack, -1)) {
                         inv.addItemStackToInventory(newStack);
-                        return new Object[]{false};
+                        return new Object[] { false };
                     }
-                    return new Object[]{true};
+                    return new Object[] { true };
                 }
                 break;
             case 2:
@@ -92,15 +96,16 @@ public class LuaObjectPlayerInv implements ILuaObject {
 
                 if (hasDepositPermission()) {
                     origStack = getInputInventory().getStackInSlot(((Double) arguments[1]).intValue());
-                    newStack = getInputInventory().decrStackSize(((Double) arguments[1]).intValue(), ((Double) arguments[2]).intValue());
+                    newStack = getInputInventory()
+                        .decrStackSize(((Double) arguments[1]).intValue(), ((Double) arguments[2]).intValue());
                     if (newStack == null) {
                         return new Object[0];
                     }
                     if (addStackToInv(inv, newStack, 0)) {
-                        return new Object[]{true};
+                        return new Object[] { true };
                     } else {
                         getInputInventory().setInventorySlotContents(((Double) arguments[1]).intValue(), origStack);
-                        return new Object[]{false};
+                        return new Object[] { false };
                     }
                 }
                 break;
@@ -117,22 +122,22 @@ public class LuaObjectPlayerInv implements ILuaObject {
 
                 if (hasDepositPermission()) {
                     origStack = getInputInventory().getStackInSlot(((Double) arguments[0]).intValue());
-                    newStack = getInputInventory().decrStackSize(((Double) arguments[0]).intValue(), ((Double) arguments[1]).intValue());
+                    newStack = getInputInventory()
+                        .decrStackSize(((Double) arguments[0]).intValue(), ((Double) arguments[1]).intValue());
                     if (newStack == null) {
                         return new Object[0];
                     }
                     if (addStackToInv(inv, newStack, -1)) {
-                        return new Object[]{true};
+                        return new Object[] { true };
                     } else {
                         getInputInventory().setInventorySlotContents(((Double) arguments[0]).intValue(), origStack);
-                        return new Object[]{false};
+                        return new Object[] { false };
                     }
                 }
                 break;
             case 4:
-                if (hasGetStacksPermission())
-                {
-                    return new Object[]{inv.getSizeInventory()};
+                if (hasGetStacksPermission()) {
+                    return new Object[] { inv.getSizeInventory() };
                 }
                 break;
         }
@@ -142,14 +147,13 @@ public class LuaObjectPlayerInv implements ILuaObject {
 
     @Override
     public String[] getMethodNames() {
-        return new String[]{"getStackInSlot", "retrieveFromSlot", "pushToSlot", "push", "getSize"};
+        return new String[] { "getStackInSlot", "retrieveFromSlot", "pushToSlot", "push", "getSize" };
     }
 
     private Object getObjectFromStack(ItemStack stack) {
         HashMap<String, Object> map = new HashMap<String, Object>();
 
-        if (stack == null)
-        {
+        if (stack == null) {
             return null;
         }
 
@@ -169,10 +173,16 @@ public class LuaObjectPlayerInv implements ILuaObject {
         if (outDir == null) {
             throw new LuaException("Output Side has not yet been set.");
         }
-        Location blockLoc = new Location(playerInterface.xCoord + outDir.offsetX, playerInterface.yCoord + outDir.offsetY, playerInterface.zCoord + outDir.offsetZ, playerInterface.getWorldObj());
-        Block block = playerInterface.getWorldObj().getBlock(blockLoc.getRoundedX(), blockLoc.getRoundedY(), blockLoc.getRoundedZ());
+        Location blockLoc = new Location(
+            playerInterface.xCoord + outDir.offsetX,
+            playerInterface.yCoord + outDir.offsetY,
+            playerInterface.zCoord + outDir.offsetZ,
+            playerInterface.getWorldObj());
+        Block block = playerInterface.getWorldObj()
+            .getBlock(blockLoc.getRoundedX(), blockLoc.getRoundedY(), blockLoc.getRoundedZ());
         if (block instanceof BlockContainer) {
-            return (IInventory) playerInterface.getWorldObj().getTileEntity(blockLoc.getRoundedX(), blockLoc.getRoundedY(), blockLoc.getRoundedZ());
+            return (IInventory) playerInterface.getWorldObj()
+                .getTileEntity(blockLoc.getRoundedX(), blockLoc.getRoundedY(), blockLoc.getRoundedZ());
         } else {
             throw new LuaException("Invalid Output Inventory.");
         }
@@ -183,10 +193,16 @@ public class LuaObjectPlayerInv implements ILuaObject {
         if (inDir == null) {
             throw new LuaException("Input Side has not yet been set.");
         }
-        Location blockLoc = new Location(playerInterface.xCoord + inDir.offsetX, playerInterface.yCoord + inDir.offsetY, playerInterface.zCoord + inDir.offsetZ, playerInterface.getWorldObj());
-        Block block = playerInterface.getWorldObj().getBlock(blockLoc.getRoundedX(), blockLoc.getRoundedY(), blockLoc.getRoundedZ());
+        Location blockLoc = new Location(
+            playerInterface.xCoord + inDir.offsetX,
+            playerInterface.yCoord + inDir.offsetY,
+            playerInterface.zCoord + inDir.offsetZ,
+            playerInterface.getWorldObj());
+        Block block = playerInterface.getWorldObj()
+            .getBlock(blockLoc.getRoundedX(), blockLoc.getRoundedY(), blockLoc.getRoundedZ());
         if (block instanceof BlockContainer) {
-            return (IInventory) playerInterface.getWorldObj().getTileEntity(blockLoc.getRoundedX(), blockLoc.getRoundedY(), blockLoc.getRoundedZ());
+            return (IInventory) playerInterface.getWorldObj()
+                .getTileEntity(blockLoc.getRoundedX(), blockLoc.getRoundedY(), blockLoc.getRoundedZ());
         } else {
             throw new LuaException("Invalid Input Inventory.");
         }
@@ -211,7 +227,8 @@ public class LuaObjectPlayerInv implements ILuaObject {
                     currentStack.stackSize += addStack.stackSize;
                     return true;
                 } else {
-                    // Was unable to add all of the stack to one slot and must add what it can to this slot and move on to the next.
+                    // Was unable to add all of the stack to one slot and must add what it can to this slot and move on
+                    // to the next.
                     currentStack.stackSize += add;
                     addStack.stackSize -= add;
 
@@ -241,9 +258,14 @@ public class LuaObjectPlayerInv implements ILuaObject {
             slots.add(slot);
         }
         for (int i = 0; i < inv.getSizeInventory(); i++) {
-            if ((inv.getStackInSlot(i) == null || (inv.getStackInSlot(i).getItem().equals(stack.getItem()) &&
-                    inv.getStackInSlot(i).stackSize != inv.getStackInSlot(i).getMaxStackSize() &&
-                    inv.getStackInSlot(i).getItemDamage() == stack.getItemDamage())) && i != slot) {
+            if ((inv.getStackInSlot(i) == null || (inv.getStackInSlot(i)
+                .getItem()
+                .equals(stack.getItem())
+                && inv.getStackInSlot(i).stackSize != inv.getStackInSlot(i)
+                    .getMaxStackSize()
+                && inv.getStackInSlot(i)
+                    .getItemDamage() == stack.getItemDamage()))
+                && i != slot) {
                 slots.add(i);
             }
         }
@@ -251,14 +273,17 @@ public class LuaObjectPlayerInv implements ILuaObject {
     }
 
     private boolean hasDepositPermission() {
-        return !Config.enableInterfacePermissions || permCard.getTagCompound().getBoolean("deposit");
+        return !Config.enableInterfacePermissions || permCard.getTagCompound()
+            .getBoolean("deposit");
     }
 
     private boolean hasWithdrawPermission() {
-        return !Config.enableInterfacePermissions || permCard.getTagCompound().getBoolean("withdraw");
+        return !Config.enableInterfacePermissions || permCard.getTagCompound()
+            .getBoolean("withdraw");
     }
 
     private boolean hasGetStacksPermission() {
-        return !Config.enableInterfacePermissions || permCard.getTagCompound().getBoolean("getStacks");
+        return !Config.enableInterfacePermissions || permCard.getTagCompound()
+            .getBoolean("getStacks");
     }
 }
