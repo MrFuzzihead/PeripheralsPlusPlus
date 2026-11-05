@@ -14,8 +14,11 @@ import dan200.computercraft.api.turtle.ITurtleUpgrade;
 public interface IPocketComputerUpgrade {
 
     /**
-     * The upgrade id <b>cannot</b> be 1! That is reserved by ComputerCraft
-     * 
+     * The upgrade id. It <b>must</b> be at least
+     * {@link com.austinv11.peripheralsplusplus.reference.Reference#FIRST_UNRESERVED_POCKET_UPGRADE_ID}:
+     * ComputerCraft reserves 1-6 for its own pocket computer upgrades (wireless modem, ender modem, speaker, chat
+     * box, npc detector, npc interface).
+     *
      * @return The id
      */
     public int getUpgradeID();

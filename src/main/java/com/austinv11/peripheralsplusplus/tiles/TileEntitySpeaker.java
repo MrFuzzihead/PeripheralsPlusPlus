@@ -8,7 +8,6 @@ import com.austinv11.peripheralsplusplus.PeripheralsPlusPlus;
 import com.austinv11.peripheralsplusplus.network.AudioPacket;
 import com.austinv11.peripheralsplusplus.network.SynthPacket;
 import com.austinv11.peripheralsplusplus.reference.Config;
-import com.austinv11.peripheralsplusplus.utils.ReflectionHelper;
 import com.austinv11.peripheralsplusplus.utils.TranslateUtils;
 import com.gtranslate.Language;
 
@@ -107,11 +106,7 @@ public class TileEntitySpeaker extends MountedTileEntity {
             String lang = null;
             if (arguments.length > 2) if (TranslateUtils.isPrefix((String) arguments[2])) lang = (String) arguments[2];
             else {
-                try {
-                    lang = ReflectionHelper.getLangFromWord((String) arguments[2]);
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
+                lang = TranslateUtils.getLangFromWord((String) arguments[2]);
                 if (lang == null || lang.length() < 2)
                     throw new LuaException("Language " + (String) arguments[2] + " is unknown");
             }

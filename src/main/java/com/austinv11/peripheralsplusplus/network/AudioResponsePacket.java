@@ -5,7 +5,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.World;
 
 import com.austinv11.peripheralsplusplus.tiles.TileEntitySpeaker;
-import com.austinv11.peripheralsplusplus.utils.ReflectionHelper;
+import com.austinv11.peripheralsplusplus.utils.TurtleUtils;
 
 import cpw.mods.fml.common.network.ByteBufUtils;
 import cpw.mods.fml.common.network.simpleimpl.IMessage;
@@ -68,7 +68,7 @@ public class AudioResponsePacket implements IMessage {
             if (message.side == null) ((TileEntitySpeaker) message.world.getTileEntity(message.x, message.y, message.z))
                 .onSpeechCompletion(message.text, message.lang);
             else try {
-                ITurtleAccess turtle = ReflectionHelper
+                ITurtleAccess turtle = TurtleUtils
                     .getTurtle(message.world.getTileEntity(message.x, message.y, message.z));
                 ((TileEntitySpeaker) turtle.getPeripheral(message.side)).onSpeechCompletion(message.text, message.lang);
             } catch (Exception e) {

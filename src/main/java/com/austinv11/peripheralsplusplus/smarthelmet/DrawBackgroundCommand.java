@@ -4,6 +4,8 @@ import net.minecraft.client.gui.Gui;
 import net.minecraft.client.gui.GuiScreen;
 import net.minecraft.nbt.NBTTagCompound;
 
+import com.austinv11.peripheralsplusplus.mixins.early.GuiAccessor;
+
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
@@ -17,7 +19,7 @@ public class DrawBackgroundCommand extends HelmetCommand {
     public void call(Gui gui) {
         GuiScreen screen = (GuiScreen) gui;
         if (defaultBackground) screen.drawBackground(0);
-        else screen.drawGradientRect(0, 0, screen.width, screen.height, -1072689136, -804253680);
+        else((GuiAccessor) screen).ppp$drawGradientRect(0, 0, screen.width, screen.height, -1072689136, -804253680);
     }
 
     @Override

@@ -1,10 +1,10 @@
 package com.austinv11.peripheralsplusplus.turtles;
 
-import net.minecraft.block.BlockDispenser;
 import net.minecraft.init.Blocks;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.IIcon;
 
+import com.austinv11.peripheralsplusplus.mixins.early.BlockDispenserAccessor;
 import com.austinv11.peripheralsplusplus.reference.Reference;
 import com.austinv11.peripheralsplusplus.turtles.peripherals.PeripheralDispenser;
 
@@ -50,7 +50,7 @@ public class TurtleDispenser implements ITurtleUpgrade {
 
     @Override
     public IIcon getIcon(ITurtleAccess turtle, TurtleSide side) {
-        return ((BlockDispenser) Blocks.dispenser).field_149945_N;
+        return ((BlockDispenserAccessor) Blocks.dispenser).ppp$getDispenserTopIcon();
     }
 
     @Override

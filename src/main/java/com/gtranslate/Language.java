@@ -72,6 +72,14 @@ public class Language {
     private static Language language;
     private HashMap hashLanguage = new HashMap();
 
+    /**
+     * Language prefix to English language name. Callers used to read the private field reflectively.
+     */
+    @SuppressWarnings("unchecked")
+    public HashMap<String, String> getHashLanguage() {
+        return hashLanguage;
+    }
+
     private Language() {
         this.init();
     }

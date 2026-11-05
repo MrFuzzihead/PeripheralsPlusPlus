@@ -16,7 +16,7 @@ import com.austinv11.peripheralsplusplus.PeripheralsPlusPlus;
 import com.austinv11.peripheralsplusplus.network.RidableTurtlePacket;
 import com.austinv11.peripheralsplusplus.reference.Config;
 import com.austinv11.peripheralsplusplus.turtles.TurtleRidable;
-import com.austinv11.peripheralsplusplus.utils.ReflectionHelper;
+import com.austinv11.peripheralsplusplus.utils.TurtleUtils;
 
 import dan200.computercraft.api.turtle.ITurtleAccess;
 import dan200.computercraft.api.turtle.TurtleAnimation;
@@ -97,11 +97,8 @@ public class EntityRidableTurtle extends Entity {
 
     private void checkRemove() {
         if (turtleLastPos != null) {
-            try {
-                TileEntity turtleTile = this.worldObj
-                    .getTileEntity(turtleLastPos[0], turtleLastPos[1], turtleLastPos[2]);
-                this.turtle = ReflectionHelper.getTurtle(turtleTile);
-            } catch (Exception ignored) {}
+            TileEntity turtleTile = this.worldObj.getTileEntity(turtleLastPos[0], turtleLastPos[1], turtleLastPos[2]);
+            this.turtle = TurtleUtils.getTurtle(turtleTile);
             turtleLastPos = null;
         }
         if (!this.worldObj.isRemote && ((turtle == null || !isTurleInWorld()) || !turtleHasUpgrade())) {

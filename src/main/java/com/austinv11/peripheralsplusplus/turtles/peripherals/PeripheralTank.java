@@ -18,6 +18,7 @@ import net.minecraftforge.fluids.FluidTank;
 import net.minecraftforge.fluids.IFluidContainerItem;
 import net.minecraftforge.fluids.IFluidHandler;
 
+import com.austinv11.peripheralsplusplus.mixins.early.ItemBucketAccessor;
 import com.austinv11.peripheralsplusplus.reference.Config;
 
 import dan200.computercraft.api.lua.ILuaContext;
@@ -103,7 +104,7 @@ public class PeripheralTank extends MountedPeripheral {
                         .getStackInSlot(fillSlot);
                     if (fillStack.getItem() instanceof ItemBucket) {
                         // Check that the container is empty
-                        if (((ItemBucket) fillStack.getItem()).isFull != Blocks.air) {
+                        if (((ItemBucketAccessor) fillStack.getItem()).ppp$getFullBlock() != Blocks.air) {
                             return new Object[] { 0 };
                         }
 

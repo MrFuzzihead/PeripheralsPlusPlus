@@ -7,6 +7,7 @@ import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.pathfinding.PathNavigate;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.DamageSource;
 
@@ -16,6 +17,8 @@ import com.austinv11.collectiveframework.utils.math.MathUtils;
 import com.austinv11.peripheralsplusplus.PeripheralsPlusPlus;
 import com.austinv11.peripheralsplusplus.entities.NanoProperties;
 import com.austinv11.peripheralsplusplus.items.ItemNanoSwarm;
+import com.austinv11.peripheralsplusplus.mixins.early.EntityLivingAccessor;
+import com.austinv11.peripheralsplusplus.mixins.early.EntityLivingBaseAccessor;
 import com.austinv11.peripheralsplusplus.network.RobotEventPacket;
 import com.austinv11.peripheralsplusplus.reference.Reference;
 
@@ -228,7 +231,7 @@ public class LuaObjectEntityControl implements ILuaObject {
                                 (Double) arguments[1],
                                 (Double) arguments[2],
                                 entity.worldObj));
-                        entity.currentTarget = target;
+                        ((EntityLivingAccessor) entity).ppp$setCurrentTarget(target);
                         return new Object[] { target != null };
 
                     case 10:
@@ -262,9 +265,9 @@ public class LuaObjectEntityControl implements ILuaObject {
                         if (!(arguments[2] instanceof Double))
                             throw new LuaException("Bad argument #3 (expected number)");
                         if (!ItemNanoSwarm.doInstruction(id, entity)) return new Object[] { false };
-                        entity.navigator.setPath(
-                            entity.navigator
-                                .getPathToXYZ((Double) arguments[0], (Double) arguments[1], (Double) arguments[2]),
+                        PathNavigate navigator = ((EntityLivingAccessor) entity).ppp$getNavigator();
+                        navigator.setPath(
+                            navigator.getPathToXYZ((Double) arguments[0], (Double) arguments[1], (Double) arguments[2]),
                             entity.getAIMoveSpeed());
                         break;
 
@@ -279,7 +282,7 @@ public class LuaObjectEntityControl implements ILuaObject {
 
                     case 13:
                         if (!ItemNanoSwarm.doInstruction(id, entity)) return new Object[] { false };
-                        entity.setJumping(!entity.isJumping);
+                        entity.setJumping(!((EntityLivingBaseAccessor) entity).ppp$isJumping());
                         break;
                 }
             }

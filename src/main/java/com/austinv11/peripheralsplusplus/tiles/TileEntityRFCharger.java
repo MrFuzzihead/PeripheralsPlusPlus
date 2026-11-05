@@ -9,7 +9,7 @@ import net.minecraftforge.common.util.ForgeDirection;
 
 import com.austinv11.collectiveframework.minecraft.tiles.NetworkedTileEntity;
 import com.austinv11.peripheralsplusplus.reference.Config;
-import com.austinv11.peripheralsplusplus.utils.ReflectionHelper;
+import com.austinv11.peripheralsplusplus.utils.TurtleUtils;
 
 import cofh.api.energy.EnergyStorage;
 import cofh.api.energy.IEnergyReceiver;
@@ -55,13 +55,9 @@ public class TileEntityRFCharger extends NetworkedTileEntity implements IEnergyR
                 if (!getWorldObj().blockExists(x, y, z)) continue;
                 TileEntity te = getWorldObj().getTileEntity(x, y, z);
                 if (te != null) {
-                    try {
-                        ITurtleAccess turtle = ReflectionHelper.getTurtle(te);
-                        if (turtle != null) {
-                            turtles.add(turtle);
-                        }
-                    } catch (Exception e) {
-                        e.printStackTrace();
+                    ITurtleAccess turtle = TurtleUtils.getTurtle(te);
+                    if (turtle != null) {
+                        turtles.add(turtle);
                     }
                 }
             }

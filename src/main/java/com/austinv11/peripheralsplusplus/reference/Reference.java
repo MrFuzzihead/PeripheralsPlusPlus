@@ -12,8 +12,11 @@ public class Reference {
     public static final String GUI_FACTORY_CLASS = "com.austinv11.peripheralsplusplus.client.gui.GUIFactory";
 
     // Pocket Computer Upgrades
-    public static final int MOTION_DETECTOR = 2;
-    public static final int PERIPHERAL_CONTAINER = 3;
+    // ComputerCraft owns ids 1-6 (1 wireless modem, 2 ender modem, 3 speaker, 4 chat box, 5 npc detector,
+    // 6 npc interface); it attaches its own peripheral for those. Our upgrades must stay above that range.
+    public static final int FIRST_UNRESERVED_POCKET_UPGRADE_ID = 7;
+    public static final int MOTION_DETECTOR = 7;
+    public static final int PERIPHERAL_CONTAINER = 8;
 
     // Turtle Upgrades
     public static final int CHAT_BOX_UPGRADE = 101;

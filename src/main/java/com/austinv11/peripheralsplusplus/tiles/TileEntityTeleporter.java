@@ -18,7 +18,7 @@ import net.minecraft.world.World;
 import net.minecraftforge.common.util.Constants;
 
 import com.austinv11.peripheralsplusplus.reference.Config;
-import com.austinv11.peripheralsplusplus.utils.ReflectionHelper;
+import com.austinv11.peripheralsplusplus.utils.TurtleUtils;
 
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Loader;
@@ -112,11 +112,7 @@ public class TileEntityTeleporter extends MountedTileEntity {
                 xCoord + Facing.offsetsXForSide[getBlockMetadata()],
                 yCoord + Facing.offsetsYForSide[getBlockMetadata()],
                 zCoord + Facing.offsetsZForSide[getBlockMetadata()]);
-            try {
-                if (ReflectionHelper.getTurtle(te) == null) throw new LuaException("No turtle in front");
-            } catch (Exception e) {
-                throw new LuaException("No turtle in front");
-            }
+            if (TurtleUtils.getTurtle(te) == null) throw new LuaException("No turtle in front");
             World destWorld = MinecraftServer.getServer()
                 .worldServerForDimension(link.linkDim);
             if (destWorld == null) throw new LuaException("Destination world missing");
@@ -136,10 +132,8 @@ public class TileEntityTeleporter extends MountedTileEntity {
             int xdif = Math.abs(xCoord - link.link.posX);
             int ydif = Math.abs(yCoord - link.link.posY);
             int zdif = Math.abs(zCoord - link.link.posZ);
-            ITurtleAccess turtle = null;
-            try {
-                turtle = ReflectionHelper.getTurtle(te);
-            } catch (Exception ignored) {}
+            ITurtleAccess turtle = TurtleUtils.getTurtle(te);
+            if (turtle == null) throw new LuaException("No turtle in front");
             if (!turtle.consumeFuel(
                 Math.abs(
                     (int) Math.ceil(

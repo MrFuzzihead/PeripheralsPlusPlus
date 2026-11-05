@@ -5,6 +5,8 @@ import java.awt.Color;
 import net.minecraft.client.gui.Gui;
 import net.minecraft.nbt.NBTTagCompound;
 
+import com.austinv11.peripheralsplusplus.mixins.early.GuiAccessor;
+
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
@@ -18,7 +20,7 @@ public class DrawRectangleCommand extends HelmetCommand {
     public void call(Gui gui) {
         // GL11.glColor4f(color.getRed()/255, color.getGreen()/255, color.getBlue()/255, color.getAlpha()/255);
         if (color2 == null) Gui.drawRect(x1, y1, x2, y2, color.getRGB());
-        else gui.drawGradientRect(x1, y1, x2, y2, color.getRGB(), color2.getRGB());
+        else((GuiAccessor) gui).ppp$drawGradientRect(x1, y1, x2, y2, color.getRGB(), color2.getRGB());
     }
 
     @Override
