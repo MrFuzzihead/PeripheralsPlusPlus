@@ -36,16 +36,12 @@
 dependencies {
     // NEI (compile against it, but it is supplied by the modpack at runtime)
     devOnlyNonPublishable("com.github.GTNewHorizons:NotEnoughItems:2.9.0-GTNH:dev")
-    runtimeOnlyNonPublishable("com.github.GTNewHorizons:NotEnoughItems:2.9.0-GTNH:dev")
 
     // Optional mod integrations
     compileOnly("com.github.GTNewHorizons:Applied-Energistics-2-Unofficial:rv3-beta-999-GTNH:dev")
     compileOnly("com.github.GTNewHorizons:ForestryMC:4.12.0:dev")
 
-    // Hard dependencies
-    // The JitPack artifacts (ComputerCraft-Legacy, CurseForge files) are published with SRG/MCP names, so they
-    // have to be deobfuscated for RFG, otherwise they fail to link against the deobfuscated dev Minecraft.
-    api("com.github.MrFuzzihead:Computercraft-Legacy:2.3.9:dev")
+    api("com.github.MrFuzzihead:Computercraft-Legacy:3.2.0:dev")
     api(rfg.deobf("curse.maven:CollectiveFramework-232966:2255921"))
 
     // Libraries that are bundled into the mod jar (see addon.gradle)

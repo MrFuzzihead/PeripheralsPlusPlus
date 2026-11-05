@@ -17,9 +17,9 @@ configurations.named("devOnlyNonPublishable") {
 // EntityAnimal/EntityAIMate) with a ClassWriter that only computes max stack, so the stack map frames it leaves
 // behind are stale. That is harmless for the vanilla (Java 6) bytecode, but the RFG-recompiled dev Minecraft is
 // Java 8 bytecode, where those frames must be valid -> VerifyError during startup. Disable bytecode verification
-// for the Java 8 dev runs as a workaround.
+// for the dev runs as a workaround (still honoured by the JetBrains JDK 21 used by the modern run tasks).
 tasks.withType<org.gradle.api.tasks.JavaExec>().configureEach {
-    if (name == "runClient" || name == "runServer") {
+    if (name.startsWith("runClient") || name.startsWith("runServer")) {
         jvmArgs("-noverify")
     }
 }

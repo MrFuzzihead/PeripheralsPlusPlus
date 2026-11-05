@@ -3,6 +3,7 @@ package com.austinv11.peripheralsplusplus.asm;
 import java.util.Iterator;
 
 import net.minecraft.launchwrapper.IClassTransformer;
+import net.minecraft.launchwrapper.Launch;
 
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.ClassWriter;
@@ -19,9 +20,33 @@ import com.austinv11.peripheralsplusplus.PeripheralsPlusPlus;
 
 public class Transformer implements IClassTransformer, Opcodes {
 
+    /**
+     * ComputerCraft 3.x moved the pocket computer upgrades into its own table
+     * ({@code PocketUpgrades}, ids 1-6) and ships its own speaker/chat box pocket peripherals. Our ids 2 and 3
+     * collide with its ender modem and speaker, so the injected hooks below would detach/mis-register CC's own
+     * upgrades. The pocket peripherals need reworking for that API; until then leave {@code ItemPocketComputer}
+     * untouched so the rest of the mod keeps working.
+     */
+    private static final String COMPUTERCRAFT_3_MARKER = "dan200/computercraft/shared/pocket/PocketUpgrades.class";
+
+    private static Boolean computerCraft3x;
+
+    private static boolean isComputerCraft3x() {
+        if (computerCraft3x == null) {
+            computerCraft3x = Launch.classLoader.getResource(COMPUTERCRAFT_3_MARKER) != null;
+        }
+        return computerCraft3x;
+    }
+
     @Override
     public byte[] transform(String className, String newClassName, byte[] byteCode) {
         if (className.equals("dan200.computercraft.shared.pocket.items.ItemPocketComputer")) {
+            if (isComputerCraft3x()) {
+                PeripheralsPlusPlus.LOGGER.warn(
+                    "ComputerCraft 3 detected: pocket computer peripheral upgrades are not supported yet, "
+                        + "skipping the ItemPocketComputer patch");
+                return byteCode;
+            }
             PeripheralsPlusPlus.LOGGER.info("Adding pocket computer peripherals");
             return transformPocketComputerCreateServerComputer(byteCode);
         }

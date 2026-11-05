@@ -15,6 +15,7 @@ import com.gtranslate.Language;
 import cpw.mods.fml.common.network.NetworkRegistry;
 import dan200.computercraft.api.lua.ILuaContext;
 import dan200.computercraft.api.lua.LuaException;
+import dan200.computercraft.api.lua.MethodResult;
 import dan200.computercraft.api.peripheral.IComputerAccess;
 import dan200.computercraft.api.peripheral.IPeripheral;
 import dan200.computercraft.api.turtle.ITurtleAccess;
@@ -124,7 +125,16 @@ public class TileEntitySpeaker extends MountedTileEntity {
             packetInfo[2] = arguments[0];
             packetInfo[3] = range;
             lastMessage = (String) arguments[0];
-            if (arguments.length > 3 && (Boolean) arguments[3]) context.pullEvent("speechComplete");
+            if (arguments.length > 3 && (Boolean) arguments[3]) {
+                // ComputerCraft 3.x: suspend until the speech finishes instead of blocking the computer thread
+                final String spoken = lastMessage;
+                final String language = lang;
+                return new Object[] { MethodResult.pullEvent(event -> {
+                    if (event.length > 0 && "speechComplete".equals(event[0])) return MethodResult.of(spoken, language);
+                    // Not ours, keep waiting
+                    return null;
+                }) };
+            }
             return new Object[] { lastMessage, lang };
         } else if (method == 1) {
             if (!(arguments.length > 0) || !(arguments[0] instanceof String))
@@ -174,7 +184,14 @@ public class TileEntitySpeaker extends MountedTileEntity {
                     side),
                 new NetworkRegistry.TargetPoint(id, xCoord, yCoord, zCoord, range));
 
-            if (arguments.length > 8 && (Boolean) arguments[8]) context.pullEvent("synthComplete");
+            if (arguments.length > 8 && (Boolean) arguments[8]) {
+                // ComputerCraft 3.x: suspend until the synthesis finishes instead of blocking the computer thread
+                return new Object[] { MethodResult.pullEvent(event -> {
+                    if (event.length > 0 && "synthComplete".equals(event[0])) return MethodResult.of(text);
+                    // Not ours, keep waiting
+                    return null;
+                }) };
+            }
             return new Object[] { text };
         }
         return new Object[0];

@@ -22,6 +22,7 @@ import com.austinv11.peripheralsplusplus.utils.Util;
 
 import dan200.computercraft.api.lua.ILuaContext;
 import dan200.computercraft.api.lua.LuaException;
+import dan200.computercraft.api.lua.MethodResult;
 import dan200.computercraft.api.peripheral.IComputerAccess;
 import dan200.computercraft.api.peripheral.IPeripheral;
 
@@ -113,8 +114,12 @@ public class TileEntityAntenna extends MountedTileEntity {
                     PeripheralsPlusPlus.NETWORK.sendTo(
                         new ScaleRequestPacket(this, computer.getID(), world),
                         (EntityPlayerMP) Util.getPlayer((String) arguments[0]));
-                    context.pullEvent("resolution");
-                    return new Object[] { obj };
+                    // ComputerCraft 3.x: suspend until the client reports the HUD resolution instead of blocking
+                    return new Object[] { MethodResult.pullEvent(event -> {
+                        if (event.length > 0 && "resolution".equals(event[0])) return MethodResult.of(obj);
+                        // Not ours, keep waiting
+                        return null;
+                    }) };
                 }
             case 2:
                 synchronized (this) {

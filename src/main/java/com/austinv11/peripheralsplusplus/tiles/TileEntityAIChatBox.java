@@ -16,6 +16,7 @@ import com.google.code.chatterbotapi.ChatterBotType;
 import dan200.computercraft.api.lua.ILuaContext;
 import dan200.computercraft.api.lua.ILuaObject;
 import dan200.computercraft.api.lua.LuaException;
+import dan200.computercraft.api.lua.MethodResult;
 import dan200.computercraft.api.peripheral.IComputerAccess;
 import dan200.computercraft.api.peripheral.IPeripheral;
 
@@ -311,19 +312,19 @@ public class TileEntityAIChatBox extends MountedTileEntity {
                 // Run method
                 thinkAsync(message);
 
-                // Wait for message
-                Object[] event = context.pullEvent(AIChatRequest.EVENT);
-
+                // Wait for message. ComputerCraft 3.x has no blocking pullEvent(): a method suspends by
+                // returning a MethodResult and the Lua bridge resumes it with each event until ours arrives.
                 // ai_response: string side, bool success, string response, string uuid
                 // event[0] event[1] event[2] event[3] event[4]
-
-                // Make sure you get the right message and not someone else's
-                while (!uuid.toString()
-                    .equals(event[4])) {
-                    event = context.pullEvent(AIChatRequest.EVENT);
-                }
-
-                return new Object[] { event[2], event[3] };
+                final String expectedUuid = uuid.toString();
+                return new Object[] { MethodResult.pullEvent(event -> {
+                    // Make sure you get the right message and not someone else's
+                    if (event.length > 4 && AIChatRequest.EVENT.equals(event[0]) && expectedUuid.equals(event[4])) {
+                        return MethodResult.of(event[2], event[3]);
+                    }
+                    // Not ours, keep waiting
+                    return null;
+                }) };
             }
 
             // nil = thinkAsync(string message)
