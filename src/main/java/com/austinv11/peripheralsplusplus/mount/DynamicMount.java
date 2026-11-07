@@ -1,121 +1,163 @@
 package com.austinv11.peripheralsplusplus.mount;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileWriter;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-import com.austinv11.collectiveframework.multithreading.SimpleRunnable;
-import com.austinv11.collectiveframework.utils.WebUtils;
 import com.austinv11.peripheralsplusplus.PeripheralsPlusPlus;
 import com.austinv11.peripheralsplusplus.tiles.TileEntityAnalyzer;
 import com.austinv11.peripheralsplusplus.utils.JSONFileList;
 import com.austinv11.peripheralsplusplus.utils.JSONIndex;
-import com.austinv11.peripheralsplusplus.utils.Util;
 import com.google.gson.Gson;
 
 import dan200.computercraft.api.filesystem.IMount;
 import dan200.computercraft.api.peripheral.IPeripheral;
 
+/**
+ * Read-only mount exposing the example Lua programs for a peripheral under {@code /ppp}.
+ *
+ * <p>
+ * The programs ship inside this mod's jar at {@value #RESOURCE_ROOT}, so they are always present, always match the
+ * installed version and never need a network connection. Only the directory belonging to the mounted peripheral is
+ * visible; the listing comes from the {@code index.json} manifests stored next to the scripts.
+ * </p>
+ */
 public class DynamicMount implements IMount {
 
-    public static final String MOUNT_DIRECTORY = PeripheralsPlusPlus.BASE_PPP_DIR + "ppp_mount";
     public static final String DIRECTORY = "/ppp";
-    public static final String JSON_VER = "1.1";
-    private IPeripheral peripheral;
+    /** Classpath root the programs are packaged under. */
+    public static final String RESOURCE_ROOT = "/assets/peripheralsplusplus/lua/";
+    private static final String MANIFEST = "index.json";
+
+    /** Directory name -> the scripts it offers, built once from the bundled manifests. */
+    private static Map<String, List<String>> directories;
+    /** The directory this mount exposes, i.e. the peripheral's type. */
+    private final String directory;
 
     public DynamicMount(IPeripheral peripheral) {
-        this.peripheral = peripheral;
+        this.directory = getSafeType(peripheral);
     }
 
-    public static void prepareMount() {
-        new SimpleRunnable() {
-
-            @Override
-            public void run() {
-                try {
-                    Gson gson = new Gson();
-                    JSONIndex index = gson.fromJson(
-                        Util.listToString(WebUtils.readGithub("PeripheralsPlusPlus", "lua/index.json")),
-                        JSONIndex.class);
-                    if (!index.ver.equals(JSON_VER)) PeripheralsPlusPlus.LOGGER
-                        .warn("JSON Version mismatch! Is your version of Peripherals++ outdated?");
-                    String[] dirs = index.dirs;
-                    PeripheralsPlusPlus.LOGGER
-                        .info(dirs.length + " directories found! Attempting to update (if necessary)...");
-                    for (String d : dirs) {
-                        JSONFileList files = gson.fromJson(
-                            Util.listToString(WebUtils.readGithub("PeripheralsPlusPlus", "lua/" + d + "/index.json")),
-                            JSONFileList.class);
-                        if (Util.checkFileVersion(MOUNT_DIRECTORY + "/" + d, files)) {
-                            String[] files1 = files.files;
-                            for (String f : files1) {
-                                File file = new File((MOUNT_DIRECTORY + "/" + d + "/" + f).replace(".lua", ""));
-                                file.mkdirs();
-                                file.delete();// FIXME:Too inefficient
-                                file.createNewFile();
-                                FileWriter writer = new FileWriter(file);
-                                writer.write(
-                                    Util.listToString(
-                                        WebUtils.readGithub("PeripheralsPlusPlus", "lua/" + d + "/" + f)));
-                                writer.close();
-                            }
-                        }
+    /**
+     * Reads the {@code index.json} manifests bundled with the scripts to learn which files each directory offers.
+     * A manifest that is missing or unparsable simply contributes no directories, so a damaged jar can never make
+     * mounting throw.
+     */
+    private static synchronized Map<String, List<String>> getDirectories() {
+        if (directories != null) return directories;
+        Map<String, List<String>> found = new HashMap<String, List<String>>();
+        Gson gson = new Gson();
+        try {
+            JSONIndex index = gson.fromJson(readResource(MANIFEST), JSONIndex.class);
+            if (index != null && index.dirs != null) {
+                for (String dir : index.dirs) {
+                    if (dir == null) continue;
+                    JSONFileList manifest = gson.fromJson(readResource(dir + "/" + MANIFEST), JSONFileList.class);
+                    if (manifest == null || manifest.files == null) continue;
+                    List<String> files = new ArrayList<String>();
+                    for (String file : manifest.files) {
+                        // The manifest lists itself, which is only useful when comparing versions on disk; players
+                        // should not see it in the mount.
+                        if (file != null && !MANIFEST.equals(file)) files.add(file);
                     }
-                    PeripheralsPlusPlus.LOGGER.info("Mount has been successfully prepared!");
-                } catch (Exception e) {
-                    PeripheralsPlusPlus.LOGGER.error(
-                        "An exception was thrown attempting to prepare mount programs; if your internet connection is fine, please report the following to the mod author:");
-                    e.printStackTrace();
-                } finally {
-                    this.disable(true);
+                    found.put(dir, Collections.unmodifiableList(files));
                 }
             }
+        } catch (IOException e) {
+            PeripheralsPlusPlus.LOGGER
+                .error("Unable to read the bundled mount manifests, /ppp will be empty: " + e.getMessage());
+        }
+        directories = Collections.unmodifiableMap(found);
+        return directories;
+    }
 
-            @Override
-            public String getName() {
-                return "Dynamic Mount Update Thread";
-            }
-        }.start();
+    private static byte[] readBytes(String resource) throws IOException {
+        InputStream stream = DynamicMount.class.getResourceAsStream(RESOURCE_ROOT + resource);
+        if (stream == null) throw new IOException("Missing bundled resource " + RESOURCE_ROOT + resource);
+        try {
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            byte[] buffer = new byte[4096];
+            int read;
+            while ((read = stream.read(buffer)) != -1) out.write(buffer, 0, read);
+            return out.toByteArray();
+        } finally {
+            stream.close();
+        }
+    }
+
+    private static String readResource(String resource) throws IOException {
+        return new String(readBytes(resource), StandardCharsets.UTF_8);
+    }
+
+    /** Strips the separators mounts are addressed with and normalises them to {@code /}. */
+    private static String normalize(String path) {
+        if (path == null) return "";
+        String normalized = path.replace('\\', '/');
+        while (normalized.startsWith("/")) normalized = normalized.substring(1);
+        while (normalized.endsWith("/")) normalized = normalized.substring(0, normalized.length() - 1);
+        return normalized;
+    }
+
+    /** True if the path addresses the root of this mount or the one directory it exposes. */
+    private boolean isOwnDirectory(String path) {
+        return path.isEmpty() || path.equals(directory);
     }
 
     @Override
     public boolean exists(String path) throws IOException {
-        return new File(MOUNT_DIRECTORY + "/" + path).exists();
+        String normalized = normalize(path);
+        if (isOwnDirectory(normalized)) return getDirectories().containsKey(directory);
+        String[] parts = normalized.split("/", 2);
+        if (!parts[0].equals(directory)) return false;
+        List<String> files = getDirectories().get(directory);
+        return files != null && (parts.length == 1 || files.contains(parts[1]));
     }
 
     @Override
     public boolean isDirectory(String path) throws IOException {
-        return new File(MOUNT_DIRECTORY + "/" + path).isDirectory();
+        String normalized = normalize(path);
+        if (isOwnDirectory(normalized)) return getDirectories().containsKey(directory);
+        return false;
     }
 
     @Override
     public void list(String path, List<String> contents) throws IOException {
-        File file = new File(MOUNT_DIRECTORY + "/" + path);
-        for (File f : file.listFiles()) {
-            String type = getSafeType();
-            if (f.getName()
-                .equals(type)
-                || file.getAbsolutePath()
-                    .contains(type))
-                if (!path.contains("index")) contents.add(f.getName());
-        }
+        List<String> files = getDirectories().get(directory);
+        if (files == null) return;
+        String normalized = normalize(path);
+        if (normalized.isEmpty()) contents.add(directory);
+        else if (normalized.equals(directory)) contents.addAll(files);
     }
 
     @Override
     public long getSize(String path) throws IOException {
-        return new File(MOUNT_DIRECTORY + "/" + path).getTotalSpace();
+        return readBytesFor(path).length;
     }
 
     @Override
     public InputStream openForRead(String path) throws IOException {
-        return new FileInputStream(new File(MOUNT_DIRECTORY + "/" + path));
+        return new ByteArrayInputStream(readBytesFor(path));
     }
 
-    private String getSafeType() {
-        return peripheral instanceof TileEntityAnalyzer ? "analyzers" : peripheral.getType(); // FIXME: Hardcoding is no
-                                                                                              // bueno
+    private byte[] readBytesFor(String path) throws IOException {
+        String normalized = normalize(path);
+        String[] parts = normalized.split("/", 2);
+        List<String> files = getDirectories().get(directory);
+        // Only the mounted peripheral's own scripts are readable.
+        if (parts.length != 2 || !parts[0].equals(directory) || files == null || !files.contains(parts[1]))
+            throw new IOException("No such file " + path);
+        return readBytes(normalized);
+    }
+
+    private static String getSafeType(IPeripheral peripheral) {
+        // The analyzers share one family of scripts but are registered per species.
+        return peripheral instanceof TileEntityAnalyzer ? "analyzers" : peripheral.getType();
     }
 }

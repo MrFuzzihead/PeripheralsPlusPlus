@@ -6,16 +6,19 @@
     "description": "A psuedo-port of MiscPeripherals",
     "version": "${modVersion}",
     "mcversion": "${minecraftVersion}",
-    "url": "austinv11.com",
-    "updateUrl": "",
-    "authorList": ["austinv11"],
+    "url": "https://github.com/MrFuzzihead/PeripheralsPlusPlus",
+    "updateUrl": "https://github.com/MrFuzzihead/PeripheralsPlusPlus/releases/latest",
+    "authorList": [
+		"MrFuzzihead",
+		"austinv11"
+	],
     "credits": "Made by austinv11, some ideas were taken from RichardG",
     "logoFile": "",
     "screenshots": [],
     "parent": "",
-    "requiredMods": ["Forge","ComputerCraft"],
-    "dependencies": [],
+    "requiredMods": ["ComputerCraft", "collectiveframework"],
+    "dependencies": ["ComputerCraft", "collectiveframework"],
     "dependants": [],
-    "useDependencyInformation": false
+    "useDependencyInformation": true
   }]
 }

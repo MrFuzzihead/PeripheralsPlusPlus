@@ -2,6 +2,8 @@ package com.austinv11.peripheralsplusplus.reference;
 
 import com.austinv11.peripheralsplusplus.Tags;
 
+import dan200.computercraft.api.pocket.IPocketUpgrade;
+
 public class Reference {
 
     public static final String MOD_ID = "PeripheralsPlusPlus";
@@ -13,8 +15,9 @@ public class Reference {
 
     // Pocket Computer Upgrades
     // ComputerCraft owns ids 1-6 (1 wireless modem, 2 ender modem, 3 speaker, 4 chat box, 5 npc detector,
-    // 6 npc interface); it attaches its own peripheral for those. Our upgrades must stay above that range.
-    public static final int FIRST_UNRESERVED_POCKET_UPGRADE_ID = 7;
+    // 6 npc interface); it attaches its own peripheral for those. Our upgrades must stay above that range, which is
+    // what IPocketUpgrade#FIRST_MOD_UPGRADE_ID says.
+    public static final int FIRST_UNRESERVED_POCKET_UPGRADE_ID = IPocketUpgrade.FIRST_MOD_UPGRADE_ID;
     public static final int MOTION_DETECTOR = 7;
     public static final int PERIPHERAL_CONTAINER = 8;
 

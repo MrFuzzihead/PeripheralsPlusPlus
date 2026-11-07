@@ -6,32 +6,23 @@ import com.gtnewhorizon.gtnhmixins.builders.IMixins;
 import com.gtnewhorizon.gtnhmixins.builders.MixinBuilder;
 
 /**
- * The mixin table. Early mixins are loaded through {@link EarlyMixinsLoader}, late (mod-targeting) mixins through
- * {@link LateMixinsLoader}.
+ * The mixin table. Early mixins are loaded through {@link EarlyMixinsLoader}.
+ *
+ * <p>
+ * There is no late-mixin set any more: ComputerCraft 3.3.0 made everything this mod used to reach through
+ * {@code ItemPocketComputer}, {@code PocketAPI} and {@code CCTurtleProxyCommon} mixins available directly. Pocket
+ * computer upgrades are registered with {@code ComputerCraftAPI.registerPocketUpgrade}, which lets ComputerCraft
+ * create,
+ * tick and name their peripherals, refuse to equip over an installed upgrade, and hand out the installed upgrade item
+ * from {@code pocket.unequipBack()}.
+ * </p>
  */
 public enum Mixins implements IMixins {
 
     /** Accessors and invokers that replace the old {@code ppp_at.cfg} access transformer. */
     VANILLA_ACCESSORS(new MixinBuilder().setPhase(Phase.EARLY)
         .addCommonMixins("EntityLivingAccessor", "EntityLivingBaseAccessor", "ItemBucketAccessor")
-        .addClientMixins("GuiAccessor")),
-
-    /**
-     * Hooks the two pocket computer methods the old ASM transformer used to patch, so pocket computer upgrades get
-     * their peripheral attached and updated.
-     *
-     * <p>
-     * The upgrade ids this mod uses start at {@code Reference.FIRST_UNRESERVED_POCKET_UPGRADE_ID} (7), above the
-     * 1-6 ComputerCraft reserves for its own upgrades, so these hooks ignore ComputerCraft's upgrades entirely.
-     */
-    COMPUTERCRAFT_POCKET_COMPUTER(new MixinBuilder().setPhase(Phase.LATE)
-        .addCommonMixins("ItemPocketComputerMixin", "PocketAPIMixin")
-        .addRequiredMod(TargetMods.COMPUTERCRAFT)),
-
-    /** Read access to ComputerCraft's turtle upgrade map, used by the NEI recipe handler. */
-    COMPUTERCRAFT_TURTLE_UPGRADES(new MixinBuilder().setPhase(Phase.LATE)
-        .addCommonMixins("CCTurtleProxyCommonAccessor")
-        .addRequiredMod(TargetMods.COMPUTERCRAFT));
+        .addClientMixins("GuiAccessor"));
 
     private final MixinBuilder builder;
 

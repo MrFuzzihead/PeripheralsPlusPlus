@@ -13,14 +13,12 @@ import com.austinv11.peripheralsplusplus.client.gui.GuiHandler;
 import com.austinv11.peripheralsplusplus.creativetab.CreativeTabPPP;
 import com.austinv11.peripheralsplusplus.entities.EntityNanoBotSwarm;
 import com.austinv11.peripheralsplusplus.entities.EntityRidableTurtle;
-import com.austinv11.peripheralsplusplus.hooks.ComputerCraftHooks;
 import com.austinv11.peripheralsplusplus.hooks.ComputerCraftNotFoundException;
 import com.austinv11.peripheralsplusplus.hooks.ComputerCraftRegistry;
 import com.austinv11.peripheralsplusplus.init.ModBlocks;
 import com.austinv11.peripheralsplusplus.init.ModItems;
 import com.austinv11.peripheralsplusplus.init.Recipes;
 import com.austinv11.peripheralsplusplus.items.ItemNanoSwarm;
-import com.austinv11.peripheralsplusplus.mount.DynamicMount;
 import com.austinv11.peripheralsplusplus.network.AudioPacket;
 import com.austinv11.peripheralsplusplus.network.AudioResponsePacket;
 import com.austinv11.peripheralsplusplus.network.ChatPacket;
@@ -71,7 +69,6 @@ import cpw.mods.fml.common.SidedProxy;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
 import cpw.mods.fml.common.event.FMLPostInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
-import cpw.mods.fml.common.event.FMLServerStoppedEvent;
 import cpw.mods.fml.common.network.NetworkRegistry;
 import cpw.mods.fml.common.network.simpleimpl.SimpleNetworkWrapper;
 import cpw.mods.fml.common.registry.EntityRegistry;
@@ -83,7 +80,7 @@ import dan200.computercraft.api.turtle.ITurtleUpgrade;
     modid = Reference.MOD_ID,
     name = Reference.MOD_NAME,
     version = Reference.VERSION/* , guiFactory = Reference.GUI_FACTORY_CLASS */,
-    dependencies = "after:CollectiveFramework")
+    dependencies = "required-after:ComputerCraft@[3.3.0,);required-after:collectiveframework@[1.0.0,)")
 public class PeripheralsPlusPlus {
 
     public static int VILLAGER_ID = 1337; // :P
@@ -159,8 +156,6 @@ public class PeripheralsPlusPlus {
         proxy.registerEvents();
         ModItems.preInit();
         ModBlocks.init();
-        LOGGER.info("Preparing the mount...");
-        DynamicMount.prepareMount();
     }
 
     @Mod.EventHandler
@@ -217,12 +212,6 @@ public class PeripheralsPlusPlus {
         Recipes.init();
         BlockDispenser.dispenseBehaviorRegistry.putObject(ModItems.nanoSwarm, new ItemNanoSwarm.BehaviorNanoSwarm());
         SimpleRunnable.RESTRICT_THREAD_USAGE = false;
-    }
-
-    @Mod.EventHandler
-    public void onServerStop(FMLServerStoppedEvent event) {
-        ComputerCraftHooks.cachedPeripherals.clear();
-        ComputerCraftHooks.cachedExtraPeripherals.clear();
     }
 
     public static void registerUpgrade(ITurtleUpgrade u) {

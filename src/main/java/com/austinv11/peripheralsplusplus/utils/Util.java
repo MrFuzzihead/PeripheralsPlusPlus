@@ -1,7 +1,5 @@
 package com.austinv11.peripheralsplusplus.utils;
 
-import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.EnumSet;
@@ -22,11 +20,8 @@ import net.minecraft.world.World;
 import net.minecraftforge.common.EnumPlantType;
 import net.minecraftforge.oredict.OreDictionary;
 
-import com.austinv11.collectiveframework.utils.FileUtils;
-import com.austinv11.collectiveframework.utils.StringUtils;
 import com.austinv11.peripheralsplusplus.reference.Reference;
 import com.google.common.collect.Multimap;
-import com.google.gson.Gson;
 
 public class Util {
 
@@ -123,21 +118,6 @@ public class Util {
                     break;
                 }
         return val;
-    }
-
-    public static String listToString(List<String> list) {
-        String returnVal = "";
-        for (String s : list) returnVal = returnVal + s + "\n";
-        return returnVal;
-    }
-
-    public static boolean checkFileVersion(String dir, JSONFileList json) throws IOException {
-        File file = new File(dir + "/index.json");
-        if (!file.exists()) return true;
-        Gson gson = new Gson();
-        String localJson = StringUtils.stringFromList(FileUtils.readAll(file));
-        JSONFileList localFile = gson.fromJson(localJson, JSONFileList.class);
-        return localFile != null && !localFile.ver.equals(json.ver);
     }
 
     public static Object keyFromVal(HashMap map, Object val) {
