@@ -61,6 +61,8 @@ public class PeripheralMotionDetector extends MountedPeripheral {
 
     public void update(Entity entity) {
         if (!Config.enableMotionDetector) return;
+        // Nothing to track while the computer is not held by an entity; keep reporting the last known location.
+        if (entity == null) return;
         if (computer != null) {
             Location newLocation = new Location(entity);
             if (oldLocation == null) oldLocation = new Location(newLocation);
@@ -114,7 +116,7 @@ public class PeripheralMotionDetector extends MountedPeripheral {
                                 break;
                             }
                     } else {
-                        upgrade = (int) NBTHelper.getShort(event.entityPlayer.getCurrentEquippedItem(), "upgrade");
+                        upgrade = NBTHelper.getInt(event.entityPlayer.getCurrentEquippedItem(), "upgrade");
                     }
                     if (upgrade == Reference.MOTION_DETECTOR) {
                         if (event.action == PlayerInteractEvent.Action.LEFT_CLICK_BLOCK)

@@ -1,64 +1,37 @@
 package com.austinv11.peripheralsplusplus.hooks;
 
-import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.item.ItemStack;
 import net.minecraft.world.World;
 
-import dan200.computercraft.api.peripheral.IPeripheral;
-import dan200.computercraft.api.turtle.ITurtleUpgrade;
+import dan200.computercraft.api.pocket.IPocketUpgrade;
 
 /**
- * This is like {@link dan200.computercraft.api.turtle.ITurtleUpgrade} but for Pocket Computers
+ * A Peripherals++ pocket computer upgrade: ComputerCraft's {@link IPocketUpgrade}, plus the only hook it lacks.
+ *
+ * <p>
+ * Since ComputerCraft 3.3.0 an upgrade registered with
+ * {@link dan200.computercraft.api.ComputerCraftAPI#registerPocketUpgrade(IPocketUpgrade)} is created, ticked and named
+ * by ComputerCraft itself, so {@code createPeripheral} and {@code update} are the API's own methods and this interface
+ * only adds {@link #onRightClick}. Before 3.3.0 this mod attached and ticked the peripheral itself with an
+ * {@code ItemPocketComputer} mixin.
+ * </p>
  */
-public interface IPocketComputerUpgrade {
+public interface IPocketComputerUpgrade extends IPocketUpgrade {
 
     /**
-     * The upgrade id. It <b>must</b> be at least
-     * {@link com.austinv11.peripheralsplusplus.reference.Reference#FIRST_UNRESERVED_POCKET_UPGRADE_ID}:
-     * ComputerCraft reserves 1-6 for its own pocket computer upgrades (wireless modem, ender modem, speaker, chat
-     * box, npc detector, npc interface).
+     * Called when the pocket computer is right clicked on something.
      *
-     * @return The id
-     */
-    public int getUpgradeID();
-
-    /**
-     * Same as {@link ITurtleUpgrade#getUnlocalisedAdjective()}
-     */
-    public String getUnlocalisedAdjective();
-
-    /**
-     * Same as {@link ITurtleUpgrade#getUnlocalisedAdjective()}
-     */
-    public ItemStack getCraftingItem();
-
-    /**
-     * Called to instantiate a peripheral
-     * 
-     * @param entity The entity holding the pocket computer <b>NOTE:</b> This can be null!
+     * <p>
+     * {@link IPocketUpgrade} has no equivalent. Upstream's {@code onRightClick} also suppresses the pocket computer's
+     * GUI, which 1.7.10's {@code ItemPocketComputer} opens on both sides without a packet of its own, so this is still
+     * driven by this mod's own {@code PlayerInteractEvent} handler in {@link ComputerCraftHooks}.
+     * </p>
+     *
+     * @param world  The world the computer is in
+     * @param player The player right clicking
      * @param stack  The stack representing the computer
-     * @return The peripheral
-     */
-    public IPeripheral createPeripheral(Entity entity, ItemStack stack);
-
-    /**
-     * Called when the pocket computer itemstack updates
-     * 
-     * @param entity     The entity holding the itemstack
-     * @param stack      The pocket computer itemstack
-     * @param peripheral The peripheral on the pocket computer
-     */
-    public void update(Entity entity, ItemStack stack, IPeripheral peripheral);
-
-    /**
-     * Called when the pocket computer is right clicked on something
-     * 
-     * @param world      The world the computer is in
-     * @param player     The player right clicking
-     * @param stack      The stack representing the computer
-     * @param peripheral The peripheral on the computer
      * @return True to stop the gui from opening or vice versa
      */
-    public boolean onRightClick(World world, EntityPlayer player, ItemStack stack, IPeripheral peripheral);
+    public boolean onRightClick(World world, EntityPlayer player, ItemStack stack);
 }

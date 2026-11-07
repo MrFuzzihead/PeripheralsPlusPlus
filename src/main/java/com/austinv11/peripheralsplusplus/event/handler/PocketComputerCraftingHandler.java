@@ -44,7 +44,7 @@ public class PocketComputerCraftingHandler implements IRecipe {
         ItemStack computerStack = inventory.getStackInSlot(computerSlot)
             .copy();
         if (NBTHelper.hasTag(computerStack, "upgrade")) {
-            if (NBTHelper.getShort(computerStack, "upgrade") == Reference.PERIPHERAL_CONTAINER) {
+            if (NBTHelper.getInt(computerStack, "upgrade") == Reference.PERIPHERAL_CONTAINER) {
                 if (!NBTHelper.hasTag(computerStack, "upgrades")) return true;
                 NBTTagList list = NBTHelper.getList(computerStack, "upgrades", Constants.NBT.TAG_FLOAT);
                 if (list.tagCount() > Config.maxNumberOfPeripherals) return false;
@@ -76,14 +76,14 @@ public class PocketComputerCraftingHandler implements IRecipe {
         ItemStack computerStack = inventory.getStackInSlot(computerSlot)
             .copy();
         if (NBTHelper.hasTag(computerStack, "upgrade")) {
-            if (NBTHelper.getShort(computerStack, "upgrade") == Reference.PERIPHERAL_CONTAINER) {
+            if (NBTHelper.getInt(computerStack, "upgrade") == Reference.PERIPHERAL_CONTAINER) {
                 if (!NBTHelper.hasTag(computerStack, "upgrades"))
                     NBTHelper.setList(computerStack, "upgrades", new NBTTagList());
                 NBTTagList list = NBTHelper.getList(computerStack, "upgrades", Constants.NBT.TAG_FLOAT);
                 if (list.tagCount() > Config.maxNumberOfPeripherals) return null;
                 list.appendTag(new NBTTagFloat(upgrade));
             } else return null;
-        } else NBTHelper.setShort(computerStack, "upgrade", (short) upgrade);
+        } else NBTHelper.setInteger(computerStack, "upgrade", upgrade);
         NBTHelper.removeTag(computerStack, "instanceID");
         NBTHelper.removeTag(computerStack, "sessionID");
         return computerStack;

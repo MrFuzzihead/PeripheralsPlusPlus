@@ -26,6 +26,18 @@ public class TileEntityResupplyStation extends TileEntityInventory {
         return 56;
     }
 
+    /**
+     * CollectiveFramework 1.0.0 dropped this from {@link TileEntityInventory} (it keeps only the
+     * {@code removeStackFromSlotStatic} helper), so it has to be supplied again to satisfy
+     * {@link net.minecraft.inventory.IInventory}.
+     */
+    @Override
+    public ItemStack getStackInSlotOnClosing(int slot) {
+        ItemStack stack = TileEntityInventory.removeStackFromSlotStatic(items, slot);
+        if (stack != null) markDirty();
+        return stack;
+    }
+
     @Override
     public String getInventoryName() {
         return StatCollector.translateToLocal(ModBlocks.resupplyStation.getUnlocalizedName() + ".name");

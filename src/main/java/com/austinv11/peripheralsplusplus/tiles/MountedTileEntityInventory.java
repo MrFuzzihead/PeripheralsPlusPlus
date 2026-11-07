@@ -1,5 +1,7 @@
 package com.austinv11.peripheralsplusplus.tiles;
 
+import net.minecraft.item.ItemStack;
+
 import com.austinv11.collectiveframework.minecraft.tiles.TileEntityInventory;
 import com.austinv11.peripheralsplusplus.mount.DynamicMount;
 import com.austinv11.peripheralsplusplus.utils.IPlusPlusPeripheral;
@@ -10,6 +12,18 @@ public abstract class MountedTileEntityInventory extends TileEntityInventory imp
 
     public MountedTileEntityInventory() {
         super();
+    }
+
+    /**
+     * CollectiveFramework 1.0.0 dropped this from {@link TileEntityInventory} (it keeps only the
+     * {@code removeStackFromSlotStatic} helper), so every inventory here has to supply it again to satisfy
+     * {@link net.minecraft.inventory.IInventory}.
+     */
+    @Override
+    public ItemStack getStackInSlotOnClosing(int slot) {
+        ItemStack stack = TileEntityInventory.removeStackFromSlotStatic(items, slot);
+        if (stack != null) markDirty();
+        return stack;
     }
 
     @Override

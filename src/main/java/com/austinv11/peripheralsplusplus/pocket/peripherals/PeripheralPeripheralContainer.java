@@ -3,11 +3,8 @@ package com.austinv11.peripheralsplusplus.pocket.peripherals;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-import net.minecraft.item.ItemStack;
-
-import com.austinv11.collectiveframework.minecraft.utils.NBTHelper;
-import com.austinv11.peripheralsplusplus.hooks.ComputerCraftHooks;
 import com.austinv11.peripheralsplusplus.lua.LuaObjectPeripheralWrap;
 import com.austinv11.peripheralsplusplus.reference.Config;
 import com.austinv11.peripheralsplusplus.turtles.peripherals.MountedPeripheral;
@@ -17,12 +14,32 @@ import dan200.computercraft.api.lua.LuaException;
 import dan200.computercraft.api.peripheral.IComputerAccess;
 import dan200.computercraft.api.peripheral.IPeripheral;
 
+/**
+ * The peripheral of a pocket computer carrying a peripheral container upgrade.
+ *
+ * <p>
+ * The peripherals of the upgrades in the contained list are owned by the upgrade that built this one and passed in
+ * here, rather than looked up from a static map keyed by computer id.
+ * </p>
+ */
 public class PeripheralPeripheralContainer extends MountedPeripheral {
 
-    private ItemStack item;
+    private final Map<Integer, IPeripheral> contained;
 
-    public PeripheralPeripheralContainer(ItemStack item) {
-        this.item = item;
+    /**
+     * @param contained the peripherals of the upgrades this container carries, keyed by upgrade id
+     */
+    public PeripheralPeripheralContainer(Map<Integer, IPeripheral> contained) {
+        this.contained = contained;
+    }
+
+    /**
+     * The peripherals this container carries, keyed by upgrade id.
+     *
+     * @return the live map, keyed by upgrade id
+     */
+    public Map<Integer, IPeripheral> getContainedPeripherals() {
+        return contained;
     }
 
     @Override
@@ -41,31 +58,28 @@ public class PeripheralPeripheralContainer extends MountedPeripheral {
         if (!Config.enablePeripheralContainer) throw new LuaException("Peripheral Containers have been disabled");
         if (method == 0) {
             HashMap<Integer, String> returnVals = new HashMap<Integer, String>();
-            for (int i = 0; i < getPeripherals(computer).size(); i++) returnVals.put(
+            List<IPeripheral> peripherals = getPeripherals();
+            for (int i = 0; i < peripherals.size(); i++) returnVals.put(
                 i + 1,
-                getPeripherals(computer).get(i)
+                peripherals.get(i)
                     .getType());
             return new Object[] { returnVals };
         } else if (method == 1) {
             if (arguments.length < 1) throw new LuaException("Too few arguments");
             if (!(arguments[0] instanceof String)) throw new LuaException("Bad argument #1 (expected string)");
-            return new Object[] {
-                new LuaObjectPeripheralWrap(getPeripheralByName(computer, (String) arguments[0]), computer) };
+            return new Object[] { new LuaObjectPeripheralWrap(getPeripheralByName((String) arguments[0]), computer) };
         }
         return new Object[0];
     }
 
-    private IPeripheral getPeripheralByName(IComputerAccess computer, String argument) {
-        for (IPeripheral peripheral : getPeripherals(computer)) if (peripheral.getType()
+    private IPeripheral getPeripheralByName(String argument) {
+        for (IPeripheral peripheral : getPeripherals()) if (peripheral.getType()
             .equals(argument)) return peripheral;
         return null;
     }
 
-    public List<IPeripheral> getPeripherals(IComputerAccess computer) {
-        if (NBTHelper.hasTag(item, "upgrades")) {
-            HashMap<Integer, IPeripheral> peripherals = ComputerCraftHooks.cachedExtraPeripherals.get(computer.getID());
-            return new ArrayList<IPeripheral>(peripherals.values());
-        } else return new ArrayList<IPeripheral>();
+    public List<IPeripheral> getPeripherals() {
+        return new ArrayList<IPeripheral>(contained.values());
     }
 
     @Override
@@ -76,12 +90,12 @@ public class PeripheralPeripheralContainer extends MountedPeripheral {
     @Override
     public void attach(IComputerAccess computer) {
         super.attach(computer);
-        for (IPeripheral peripheral : getPeripherals(computer)) peripheral.attach(computer);
+        for (IPeripheral peripheral : getPeripherals()) peripheral.attach(computer);
     }
 
     @Override
     public void detach(IComputerAccess computer) {
         super.detach(computer);
-        for (IPeripheral peripheral : getPeripherals(computer)) peripheral.detach(computer);
+        for (IPeripheral peripheral : getPeripherals()) peripheral.detach(computer);
     }
 }
