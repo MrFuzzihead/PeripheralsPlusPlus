@@ -19,7 +19,6 @@ import com.austinv11.peripheralsplusplus.init.ModBlocks;
 import com.austinv11.peripheralsplusplus.init.ModItems;
 import com.austinv11.peripheralsplusplus.init.Recipes;
 import com.austinv11.peripheralsplusplus.items.ItemNanoSwarm;
-import com.austinv11.peripheralsplusplus.mount.DynamicMount;
 import com.austinv11.peripheralsplusplus.network.AudioPacket;
 import com.austinv11.peripheralsplusplus.network.AudioResponsePacket;
 import com.austinv11.peripheralsplusplus.network.ChatPacket;
@@ -157,8 +156,6 @@ public class PeripheralsPlusPlus {
         proxy.registerEvents();
         ModItems.preInit();
         ModBlocks.init();
-        LOGGER.info("Preparing the mount...");
-        DynamicMount.prepareMount();
     }
 
     @Mod.EventHandler
