@@ -14,7 +14,7 @@ import com.gtnewhorizon.gtnhmixins.builders.MixinBuilder;
  * computer upgrades are registered with {@code ComputerCraftAPI.registerPocketUpgrade}, which lets ComputerCraft
  * create,
  * tick and name their peripherals, refuse to equip over an installed upgrade, and hand out the installed upgrade item
- * from {@code pocket.unequipBack()}. {@code CCTurtleProxyCommon.getTurtleUpgrades()} is public for the NEI handler.
+ * from {@code pocket.unequipBack()}.
  * </p>
  */
 public enum Mixins implements IMixins {

@@ -34,9 +34,6 @@
  * For more details, see https://docs.gradle.org/8.0.1/userguide/java_library_plugin.html#sec:java_library_configurations_graph
  */
 dependencies {
-    // NEI (compile against it, but it is supplied by the modpack at runtime)
-    devOnlyNonPublishable("com.github.GTNewHorizons:NotEnoughItems:2.9.0-GTNH:dev")
-
     // Optional mod integrations
     compileOnly("com.github.GTNewHorizons:Applied-Energistics-2-Unofficial:rv3-beta-999-GTNH:dev")
     compileOnly("com.github.GTNewHorizons:ForestryMC:4.12.0:dev")

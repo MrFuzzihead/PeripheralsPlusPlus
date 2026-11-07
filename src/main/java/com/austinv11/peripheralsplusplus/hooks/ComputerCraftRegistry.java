@@ -1,18 +1,13 @@
 package com.austinv11.peripheralsplusplus.hooks;
 
-import java.util.Collections;
 import java.util.HashMap;
-import java.util.Map;
 
 import net.minecraft.item.ItemStack;
 
 import com.austinv11.peripheralsplusplus.reference.Reference;
 
 import cpw.mods.fml.common.Loader;
-import dan200.computercraft.ComputerCraft;
 import dan200.computercraft.api.ComputerCraftAPI;
-import dan200.computercraft.api.turtle.ITurtleUpgrade;
-import dan200.computercraft.shared.proxy.CCTurtleProxyCommon;
 
 /**
  * This is the entrance point for any registry-related objects including peripherals and APIs
@@ -21,25 +16,6 @@ public class ComputerCraftRegistry {
 
     public static HashMap<Integer, IPocketComputerUpgrade> pocketUpgrades = new HashMap<Integer, IPocketComputerUpgrade>();
     public static HashMap<ItemStack, Integer> craftingRecipes = new HashMap<ItemStack, Integer>();
-
-    /**
-     * Read access to ComputerCraft's turtle upgrade map, used by the NEI recipe handler.
-     *
-     * <p>
-     * ComputerCraft 3.3.0 made {@code CCTurtleProxyCommon.getTurtleUpgrades()} public, so this used to unwrap the
-     * private {@code m_turtleUpgrades} field through an accessor mixin and no longer needs to. The method is declared
-     * on the implementation, not on the {@code ICCTurtleProxy} interface {@code ComputerCraft.turtleProxy} is typed as,
-     * hence the cast. An empty map means the proxy is not a {@code CCTurtleProxyCommon}, which cannot happen with
-     * turtles enabled.
-     * </p>
-     */
-    public static Map<Integer, ITurtleUpgrade> getTurtleUpgrades() throws ComputerCraftNotFoundException {
-        checkCC();
-        if (ComputerCraft.turtleProxy instanceof CCTurtleProxyCommon) {
-            return ((CCTurtleProxyCommon) ComputerCraft.turtleProxy).getTurtleUpgrades();
-        }
-        return Collections.emptyMap();
-    }
 
     /**
      * Use this to register pocket computer upgrades
