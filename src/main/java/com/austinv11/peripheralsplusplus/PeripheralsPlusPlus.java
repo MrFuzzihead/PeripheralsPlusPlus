@@ -224,11 +224,27 @@ public class PeripheralsPlusPlus {
         SmokeTestHook.scheduleExitIfRequested();
     }
 
+    /** One listener for the whole mod, registered the first time a {@link TurtleDropCollector} upgrade appears. */
+    private static boolean dropCollectorRegistered;
+
+    /**
+     * Registers a turtle upgrade and, once, the living-drops listener the tool upgrades need.
+     *
+     * <p>
+     * A listener used to be registered per upgrade instance. {@link TurtleProjRed} and {@link TurtleBluePower} both
+     * extend {@link TurtleDropCollector} and thirty anonymous subclasses are registered, so every entity death ran
+     * thirty identical handlers (CODE_REVIEW.md section 4.16).
+     * </p>
+     *
+     * @param u the upgrade to register
+     */
     public static void registerUpgrade(ITurtleUpgrade u) {
         ComputerCraftAPI.registerTurtleUpgrade(u);
         CreativeTabPPP.upgrades.add(u);
-        if (u instanceof TurtleDropCollector)
-            MinecraftForge.EVENT_BUS.register(((TurtleDropCollector) u).newInstanceOfListener());
+        if (u instanceof TurtleDropCollector && !dropCollectorRegistered) {
+            MinecraftForge.EVENT_BUS.register(new TurtleDropCollector.Listener());
+            dropCollectorRegistered = true;
+        }
     }
 
     private void registerRedPowerLikeUpgrades() {

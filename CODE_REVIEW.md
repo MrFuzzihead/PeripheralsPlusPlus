@@ -44,8 +44,9 @@ Everything else is a documented backlog, ordered by phase in §9.
   succeeded. §3.3.
 * **Four user-visible miscalculations** in the sorter/tank/XP/note-block code paths that lose or duplicate
   items. §4.1–§4.4.
-* **48 further defects** catalogued by severity in §4–§6, including 3 permanent memory leaks, 6 thread-unsafe
-  static collections, an unbounded-range `setTarget` exploit, and NBT-destroying inventory merges.
+* **Every P1 is fixed** (batch 2, §14): the sorter/resupply/player-interface/tank/XP item and fluid loss, the
+  unbounded-range `setTarget` exploit, the three permanent memory leaks, and the NBT-destroying inventory merges.
+  §5–§6 still catalogue 48 lower-severity issues (thread-unsafe static collections, `printStackTrace`, dead code).
 * **5,000+ lines of duplicated logic** (two copies of `isInventoryOnSide`/`getInventoryForSide`, three copies
   of the slot-moving code, six copies of the "1-based Lua table" helper, five copies of `mount`/`detach`).
   §7 lists every duplicate with the target abstraction.
@@ -248,7 +249,7 @@ inventory.getStackInSlot(0).stackSize += transferred;  // slot 0 of the TARGET, 
 `Math.min(requested, room)` items, write to the slot they actually probed (`slots[currentSlot]`, never slot 0 of the
 target), and refuse to merge stacks with different NBT (`ItemStack#areItemStackTagsEqual`).
 
-### 4.2 `PeripheralTank.drain` can delete fluid without returning it
+### 4.2 ✅ `PeripheralTank.drain` can delete fluid without returning it
 
 `turtles/peripherals/PeripheralTank.java:236-266` — the `IFluidContainerItem` path calls
 `containerItem.drain(drainStack, 1000, true)` and unconditionally returns `1000`, but it never checks the
@@ -259,7 +260,7 @@ is called three times and can return `null` between checks.
 Also `fill` (`:91`) only handles water/lava buckets. Any other `ItemBucket` subclass returns `1000` after
 `fluidTank.drain(1000, true)` **without filling the bucket** (`if/else if` with no `else`) — fluid destroyed.
 
-### 4.3 `PeripheralXP.enchant` NPEs on an empty slot and destroys stacks/NBT
+### 4.3 ✅ `PeripheralXP.enchant` NPEs on an empty slot and destroys stacks/NBT
 
 `turtles/peripherals/PeripheralXP.java:180-190`:
 
@@ -296,7 +297,7 @@ rate = tag.getString("pitch").equals("null") ? null : Float.parseFloat(tag.getSt
 **Fix (applied):** `rate` is read from `"rate"`, `setVolume` is used, and `network/PacketCodecTest` round-trips every
 voice parameter so this class of bug cannot come back.
 
-### 4.6 `LuaObjectHUD.drawTexture` only reads `v` after 36 arguments
+### 4.6 ✅ `LuaObjectHUD.drawTexture` only reads `v` after 36 arguments
 
 `lua/LuaObjectHUD.java:116` — `if (arguments.length > 36) v = (int) (double) (Double) arguments[6];`
 (should be `> 6`). Callers that pass `texture, x, y, w, h, u, v` get `v = -1`, which is the "full texture"
@@ -305,7 +306,7 @@ sentinel, so every tiled texture renders the whole sheet.
 Same file `:253` — `if (arguments.length > 6 && !(arguments[5] instanceof String))` in `addTextField`
 (should be `> 5`), so a non-string 6th argument is accepted and cast at `:262` → `ClassCastException`.
 
-### 4.7 Nano-bot `setTarget` / `setAttackTarget` accept any entity in the world
+### 4.7 ✅ Nano-bot `setTarget` / `setAttackTarget` accept any entity in the world
 
 `lua/LuaObjectEntityControl.java:209` and `:229` call
 `WorldUtils.getNearestEntityToLocation(new Location(x, y, z, world))` — the **1-argument** overload, whose
@@ -316,7 +317,7 @@ Additionally `:234` casts the result to `EntityLivingBase` without an `instanceo
 `entity.setAttackTarget((EntityLivingBase) attackTarget)` → `ClassCastException` becomes a raw Lua error for
 boats/minecarts/items.
 
-### 4.8 `LuaObjectEntityControl.heal` heals the *player* for non-player entities
+### 4.8 ✅ `LuaObjectEntityControl.heal` heals the *player* for non-player entities
 
 `lua/LuaObjectEntityControl.java:86` — in the non-player branch:
 
@@ -327,7 +328,7 @@ player.heal(1.0F);      // `player` is null here
 
 NPE for every `heal()` call on a mob. The `hurt()` branch above it correctly uses `entity`.
 
-### 4.9 `TileEntityPeripheralContainer` never clears `needsUpdate` and can store `null`
+### 4.9 ✅ `TileEntityPeripheralContainer` never clears `needsUpdate` and can store `null`
 
 `tiles/TileEntityPeripheralContainer.java`:
 
@@ -340,7 +341,7 @@ NPE for every `heal()` call on a mob. The `hurt()` branch above it correctly use
 * `invalidate()` (`:150`) writes `writeToNBT(tag)` (which includes `x/y/z/id` **and** the contained NBT) into
   the dropped item while `BlockContainerPPP`/`BlockPeripheralContainer` may also drop the tile's inventory.
 
-### 4.10 `PeripheralDispenser` slot arithmetic is off by one
+### 4.10 ✅ `PeripheralDispenser` slot arithmetic is off by one
 
 `turtles/peripherals/PeripheralDispenser.java:43-50`:
 
@@ -354,7 +355,7 @@ else slot = turtle.getSelectedSlot();
 is `1 + n`. Also `:54` `newStack.stackSize == 0 ? null : newStack` NPEs when `behavior.dispense` returns
 `null`, and `:57` is a bare no-op statement (`turtle.getDirection();`).
 
-### 4.11 `TileEntityRFCharger` divides by the turtle count
+### 4.11 ✅ `TileEntityRFCharger` divides by the turtle count
 
 `tiles/TileEntityRFCharger.java:64` — `int rate = ((int) Math.floor((float) 6 / (float) turtles.size()));`
 With no adjacent turtle this is `(int) Infinity == Integer.MAX_VALUE` (no exception, because the division is
@@ -364,7 +365,7 @@ silent no-charge bug the moment the loop condition changes, and reads as a bug.
 The charger also ignores `EnergyStorage#extractEnergy`'s return value and calls `setFuelLevel(level + rate)`
 (bypassing `addFuel`) which can exceed `getFuelLimit()` — see the `//Bad fix for a crash` comment.
 
-### 4.12 `TileEntityTeleporter` corrupts link state
+### 4.12 ✅ `TileEntityTeleporter` corrupts link state
 
 * `readFromNBT` (`:58`) adds to `links` without clearing it → every chunk reload duplicates the links, and
   `addLink`'s `while (links.size() > getMaxLinks()) links.pop();` then throws the new link away.
@@ -377,7 +378,7 @@ The charger also ignores `EnergyStorage#extractEnergy`'s return value and calls 
   `getLinks().name` shows the peripheral's internal name and `setName` has no visible effect on anything else.
 * `onTeleport(byte)` and `LinkData`-related `FIXME`s are dead: `onTeleport` is never called.
 
-### 4.13 `TileEntityPlayerSensor`: the range argument is ignored and the distance formula is wrong
+### 4.13 ✅ `TileEntityPlayerSensor`: the range argument is ignored and the distance formula is wrong
 
 `tiles/TileEntityPlayerSensor.java:91-99`:
 
@@ -394,7 +395,7 @@ report 0. `location` is only assigned in `validate()`; a turtle-mounted sensor w
 NPEs (swallowed by the `catch (Exception) { printStackTrace(); }` at `:106`, which also turns every error
 into "return nil").
 
-### 4.14 `TileEntityAntenna` blocks HUD methods when nano-bots are disabled
+### 4.14 ✅ `TileEntityAntenna` blocks HUD methods when nano-bots are disabled
 
 `tiles/TileEntityAntenna.java:88`:
 
@@ -407,14 +408,14 @@ Because of the `else if`, `enableSmartHelmet = true, enableNanoBots = false` mak
 (`getPlayers`, `getHUD`, `setLabel`, `getLabel` — pure helmet features) throw "Nano bots have been disabled".
 Also `case 2` (`setLabel`) has no `return` and falls through into `case 3`.
 
-### 4.15 `PeripheralMotionDetector` leaks an event-bus listener per instance
+### 4.15 ✅ `PeripheralMotionDetector` leaks an event-bus listener per instance
 
 `pocket/peripherals/PeripheralMotionDetector.java:33` registers `this` on `MinecraftForge.EVENT_BUS` in the
 constructor and never unregisters. Every pocket-computer (re)creation adds a permanent listener that is
 invoked for every `PlayerInteractEvent` forever. `createPeripheral` is called again on every
 `IPocketAccess#invalidatePeripheral()`.
 
-### 4.16 `TurtleDropCollector` registers 30 identical listeners and leaks its map
+### 4.16 ✅ `TurtleDropCollector` registers 30 identical listeners and leaks its map
 
 `PeripheralsPlusPlus.registerUpgrade` (`:219`) registers `u.newInstanceOfListener()` for **every**
 `TurtleDropCollector`. `TurtleProjRed` and `TurtleBluePower` both extend it, and 15+15 anonymous subclasses
@@ -425,7 +426,7 @@ removed when the entity actually dies. Any entity that despawns, is `/kill`ed wi
 killed by a damage source that does not fire `LivingDropsEvent` leaks its entry **and** the whole
 `ITurtleAccess`/`World` graph behind it, for the lifetime of the JVM.
 
-### 4.17 `PeripheralChunkLoader` does not survive a restart and NPEs on ticket exhaustion
+### 4.17 ✅ `PeripheralChunkLoader` does not survive a restart and NPEs on ticket exhaustion
 
 `turtles/peripherals/PeripheralChunkLoader.java`:
 
@@ -435,7 +436,7 @@ killed by a damage source that does not fire `LivingDropsEvent` leaks its entry 
   `requestTicket` returned non-null (`null` when the per-mod ticket limit is reached) → NPE.
 * `detach` releases the ticket for *all* attached computers.
 
-### 4.18 `LuaObjectPlayerInv` permission checks NPE without a card
+### 4.18 ✅ `LuaObjectPlayerInv` permission checks NPE without a card
 
 `lua/LuaObjectPlayerInv.java:276/281/286`:
 
@@ -737,7 +738,7 @@ registration, villager trades, entity spawning. These are covered by the gameTes
 
 ### 10.3 Test-class matrix
 
-Landed (51 tests, `./gradlew test`):
+Landed (103 tests, `./gradlew test`):
 
 | Test class | Source under test | Tests | Guards |
 |---|---|---:|---|
@@ -745,6 +746,10 @@ Landed (51 tests, `./gradlew test`):
 | `mount/DynamicMountTest` | `mount/DynamicMount` | 9 | manifests, path normalisation, traversal, per-type paths (§3.3) |
 | `mount/PeripheralMountsTest` | `mount/PeripheralMounts` | 9 | CC's mount/unmount contract, suffixed paths, scoped unmount (§3.3) |
 | `util/UtilTableTest` | `utils/Util` | 8 | 1-based Lua tables, `stringToArray` round-trip |
+| `util/InventoryUtilsTest` | `utils/InventoryUtils` | 21 | NBT-aware matching, exact move amounts, limits, dirty flags (§4.1) |
+| `tiles/PlayerSensorTest` | `tiles/TileEntityPlayerSensor` | 12 | range, Euclidean distance, ordering (§4.13) |
+| `tiles/TeleporterTest` | `tiles/TileEntityTeleporter` | 7 | NBT round-trip, link retention, 1-based table (§4.12) |
+| `turtles/DropCollectorTest` | `turtles/TurtleDropCollector` | 6 | bounded map, single listener (§4.16) |
 | `network/PacketCodecTest` | `network/*` | 6 | `toBytes`/`fromBytes` round-trip, incl. `SynthPacket.rate` (§4.5) |
 | `reference/ReferenceTest` | `reference/Reference` | 6 | turtle/pocket id uniqueness and ranges, proxy classes |
 
@@ -774,16 +779,17 @@ Target list, in descending value/effort, to reach the 65 % ratchet:
 
 ### 10.4 Coverage gates
 
-The floor in `addon.gradle.kts` is **4 % line / 4 % branch**, which is the measured baseline
-(268 / 6511 lines, 152 / 3365 branches). It is a *regression guard*, not a target, and `check` depends on it so CI
+The floor in `addon.gradle.kts` is **7 % line / 7 % branch**, just under the measured baseline
+(489 / 6450 lines, 258 / 3379 branches). It is a *regression guard*, not a target, and `check` depends on it so CI
 cannot drift downwards.
 
 Ratchet plan — raise the floor in the same PR that adds each row above:
 
 | Milestone | Line | Branch |
 |---|---:|---:|
-| landing (now) | 4 % | 4 % |
-| after the sorter/chat box/Lua-object tests | 15 % | 12 % |
+| batch 1 (harness landing) | 4 % | 4 % |
+| batch 2 (now) | 7 % | 7 % |
+| after the chat box/Lua-object tests | 15 % | 12 % |
 | after Phase 1–2 refactors (§9) | 35 % | 25 % |
 | steady state | 65 % | 50 % |
 
@@ -941,3 +947,32 @@ Build / CI:
 | `addon.gradle.kts` | JaCoCo, Java 8 test launcher, `gameTest` source set, `gameTestServer`, run aliases, smoke-test properties, coverage floor wired into `check` |
 | `.github/workflows/smoke-test.yml` | new: server boot, in-game assertions, Xvfb client (non-blocking) |
 | `CODE_REVIEW.md` | this document |
+
+## 14. Appendix D — batch 2 (Phase 1: inventory correctness + remaining P1s)
+
+Everything in §4 is now fixed. This batch collapsed the duplicated inventory logic onto one tested helper and
+closed the rest of the P1 list.
+
+| File | Change |
+|---|---|
+| `utils/InventoryUtils.java` *(new)* | `matches` (NBT-aware), `room`, `slotsFor`, `move`, `at` — the single implementation the sorter, resupply and player interface delegate to; 18 tests |
+| `tiles/TileEntityInteractiveSorter.java` | push/pull now call `InventoryUtils.move`; the duplicate `getDefaultSlots`/`isInventoryOnSide`/`getInventoryForSide`/`isSameItem` copies are gone (~80 lines removed) |
+| `tiles/TileEntityMEBridge.java` | `retrieve` computes capacity before extracting and refunds anything that did not fit (no more item loss); helpers collapse onto `InventoryUtils.at`; `getDefaultSlots`/`getRemainingSlots` removed |
+| `lua/LuaObjectPlayerInv.java` | rewritten on `LuaArgs` + `InventoryUtils.move`; permissions deny instead of NPE-ing; `pushToSlot` honours its first argument; the partial-insert duplication path is gone |
+| `lua/LuaObjectHUD.java` | `drawTexture` reads `v` after 6 arguments, `addTextField` validates its 6th |
+| `lua/LuaObjectEntityControl.java` | `heal` heals the mob; `setTarget`/`setAttackTarget` bounded to 64 blocks and refuse non-`EntityLivingBase` targets; navigation NPE-guarded |
+| `tiles/TileEntityPeripheralContainer.java` | `needsUpdate` reset, `readFromNBT` clears + bounds, `addPeripheral` rejects null/non-peripheral/over-capacity |
+| `tiles/TileEntityTeleporter.java` | `readFromNBT` clears and bounds; `addLink` keeps the newest; `getLinks` is 1-based; block updates only on a successful teleport, with the destination block |
+| `tiles/TileEntityPlayerSensor.java` | honours the range argument (negative = unlimited), Euclidean distance including Y, nearest-first ordering, no swallowed exceptions |
+| `tiles/TileEntityAntenna.java` | correct config gate split (helmet methods vs nano-bot methods); `setLabel` returns |
+| `tiles/TileEntityRFCharger.java` | empty-list guard, capacity-clamped fuel, energy extracted from what was actually accepted |
+| `turtles/peripherals/PeripheralDispenser.java` | 1-based slot argument, null-safe dispense result, dead statement removed |
+| `turtles/peripherals/PeripheralTank.java` | fill/drain honour the container's return values (no more destroyed fluid), unsupported buckets refused |
+| `turtles/peripherals/PeripheralXP.java` | empty-slot guard, NBT and stack size preserved, every rolled enchantment kept, non-zero default enchant seed |
+| `turtles/peripherals/PeripheralChunkLoader.java` | persisted tickets are re-forced on load, null ticket guarded |
+| `pocket/peripherals/PeripheralMotionDetector.java` | listener registered on attach and removed on detach |
+| `turtles/TurtleDropCollector.java` | bounded, synchronised map pruned on world unload; one listener instead of 30 |
+| `PeripheralsPlusPlus.java` | `registerUpgrade` registers the drop listener once |
+| `addon.gradle.kts` | coverage floor raised 4 % → 7 % |
+
+Test suite: **103 tests in 10 classes**, line coverage **7.6 %** (489/6450), branch **7.6 %**, `./gradlew check` green.

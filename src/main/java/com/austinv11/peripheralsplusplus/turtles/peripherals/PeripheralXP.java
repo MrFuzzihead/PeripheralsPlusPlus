@@ -44,7 +44,9 @@ public class PeripheralXP extends MountedPeripheral {// Beware, a lot of the mat
         experience = tag.getInteger("experience");
         experienceRemainder = tag.getInteger("experienceRemainder");
         experienceLevel = tag.getInteger("experienceLevel");
-        random.setSeed(tag.getLong("rndSeed"));
+        // A missing seed means 0, which makes every enchantment roll identical after a chunk load.
+        long seed = tag.getLong("rndSeed");
+        random.setSeed(seed != 0L ? seed : turtle.getWorld().rand.nextLong());
     }
 
     public void update() {
@@ -179,21 +181,29 @@ public class PeripheralXP extends MountedPeripheral {// Beware, a lot of the mat
                     throw new LuaException("invalid level count " + levels + " (expected 1-" + MAX_LEVEL + ")");
                 slot = turtle.getInventory()
                     .getStackInSlot(turtle.getSelectedSlot());
+                // An empty slot used to NPE here (CODE_REVIEW.md section 4.3).
+                if (slot == null) throw new LuaException("There is no item in the selected slot");
                 if (!slot.isItemEnchantable()) return new Object[] { false };
                 if (experienceLevel < levels) return new Object[] { false };
                 List enchants = EnchantmentHelper.buildEnchantmentList(random, slot, levels);
                 if (enchants == null || enchants.isEmpty()) return new Object[] { false };
+                // Start from a copy so the original NBT (display name, lore, repairs) survives, and keep the stack
+                // size: the old code replaced the whole stack with a single enchanted book, destroying N-1 books.
                 ItemStack enchanted = slot.copy();
                 if (enchanted.isItemEqual(new ItemStack(Items.book))) {
-                    enchanted = new ItemStack(Items.enchanted_book);
-                    enchanted.stackTagCompound = new NBTTagCompound();
+                    enchanted = new ItemStack(Items.enchanted_book, slot.stackSize);
+                    NBTTagCompound enchantedTag = slot.stackTagCompound == null ? new NBTTagCompound()
+                        : (NBTTagCompound) slot.stackTagCompound.copy();
                     NBTTagList storedEnchantments = new NBTTagList();
-                    NBTTagCompound enchantment = new NBTTagCompound();
-                    EnchantmentData data = (EnchantmentData) enchants.get(0);
-                    enchantment.setShort("id", (short) data.enchantmentobj.effectId);
-                    enchantment.setShort("lvl", (short) data.enchantmentLevel);
-                    storedEnchantments.appendTag(enchantment);
-                    enchanted.stackTagCompound.setTag("StoredEnchantments", storedEnchantments);
+                    // Every rolled enchantment, not just the first.
+                    for (EnchantmentData data : (List<EnchantmentData>) enchants) {
+                        NBTTagCompound enchantment = new NBTTagCompound();
+                        enchantment.setShort("id", (short) data.enchantmentobj.effectId);
+                        enchantment.setShort("lvl", (short) data.enchantmentLevel);
+                        storedEnchantments.appendTag(enchantment);
+                    }
+                    enchantedTag.setTag("StoredEnchantments", storedEnchantments);
+                    enchanted.stackTagCompound = enchantedTag;
                 } else {
                     for (EnchantmentData data : (List<EnchantmentData>) enchants) {
                         enchanted.addEnchantment(data.enchantmentobj, data.enchantmentLevel);

@@ -85,8 +85,11 @@ public class TileEntityAntenna extends MountedTileEntity {
     @Override
     public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] arguments)
         throws LuaException, InterruptedException {
-        if (!Config.enableSmartHelmet && method < 6) throw new LuaException("Smart Helmets have been disabled");
-        else if (!Config.enableNanoBots) throw new LuaException("Nano bots have been disabled");
+        // Smart-helmet methods are 0-3 and the nano-bot methods are 4-5; the two config flags gate different halves of
+        // the API, and the old `else if` blocked the helmet methods when nano bots were disabled (section 4.14).
+        boolean isHelmetMethod = method < 4;
+        if (isHelmetMethod && !Config.enableSmartHelmet) throw new LuaException("Smart Helmets have been disabled");
+        if (!isHelmetMethod && !Config.enableNanoBots) throw new LuaException("Nano bots have been disabled");
         // try {
         switch (method) {
             case 0:// getPlayers
@@ -125,6 +128,7 @@ public class TileEntityAntenna extends MountedTileEntity {
                 synchronized (this) {
                     if (arguments.length != 1) throw new LuaException("Incorrect Arguments!");
                     this.setLabel(arguments[0].toString());
+                    return new Object[] { this.getLabel() };
                 }
             case 3:
                 synchronized (this) {

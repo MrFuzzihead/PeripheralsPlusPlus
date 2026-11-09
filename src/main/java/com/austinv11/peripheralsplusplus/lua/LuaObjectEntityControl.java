@@ -7,6 +7,7 @@ import net.minecraft.entity.EntityLiving;
 import net.minecraft.entity.EntityLivingBase;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.entity.player.EntityPlayerMP;
+import net.minecraft.pathfinding.PathEntity;
 import net.minecraft.pathfinding.PathNavigate;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.DamageSource;
@@ -28,6 +29,13 @@ import dan200.computercraft.api.lua.LuaException;
 
 public class LuaObjectEntityControl implements ILuaObject {
 
+    /**
+     * How far a Lua program may reach with {@code setTarget}/{@code setAttackTarget}. The world helper defaults its
+     * range to {@link Double#MAX_VALUE}, so passing it explicitly is what stops a script from targeting an entity on
+     * the other side of the world (CODE_REVIEW.md section 4.7).
+     */
+    private static final double MAX_TARGET_RANGE = 64.0D;
+
     private UUID id;
 
     private boolean isPlayer;
@@ -43,6 +51,17 @@ public class LuaObjectEntityControl implements ILuaObject {
             isPlayer = false;
             this.entity = (EntityLiving) entity;
         }
+    }
+
+    /**
+     * @param arguments the Lua arguments; indices 0-2 are the coordinates
+     * @param entity    the controlled entity, used for its world
+     * @return the closest entity within {@link #MAX_TARGET_RANGE}, or {@code null}
+     */
+    private static Entity nearestEntity(Object[] arguments, Entity entity) {
+        return WorldUtils.getNearestEntityToLocation(
+            new Location((Double) arguments[0], (Double) arguments[1], (Double) arguments[2], entity.worldObj),
+            MAX_TARGET_RANGE);
     }
 
     @Override
@@ -83,7 +102,8 @@ public class LuaObjectEntityControl implements ILuaObject {
                         player.heal(1.0F);
                     } else {
                         if (!ItemNanoSwarm.doInstruction(id, entity)) return new Object[] { false };
-                        player.heal(1.0F);
+                        // This used to heal `player`, which is null in the mob branch (CODE_REVIEW.md section 4.8).
+                        entity.heal(1.0F);
                     }
                     break;
 
@@ -225,12 +245,7 @@ public class LuaObjectEntityControl implements ILuaObject {
                         Entity target;
                         if (arguments[0] instanceof String)
                             target = WorldUtils.getPlayerForWorld((String) arguments[0], entity.worldObj);
-                        else target = WorldUtils.getNearestEntityToLocation(
-                            new Location(
-                                (Double) arguments[0],
-                                (Double) arguments[1],
-                                (Double) arguments[2],
-                                entity.worldObj));
+                        else target = nearestEntity(arguments, entity);
                         ((EntityLivingAccessor) entity).ppp$setCurrentTarget(target);
                         return new Object[] { target != null };
 
@@ -247,14 +262,14 @@ public class LuaObjectEntityControl implements ILuaObject {
                         Entity attackTarget;
                         if (arguments[0] instanceof String)
                             attackTarget = WorldUtils.getPlayerForWorld((String) arguments[0], entity.worldObj);
-                        else attackTarget = WorldUtils.getNearestEntityToLocation(
-                            new Location(
-                                (Double) arguments[0],
-                                (Double) arguments[1],
-                                (Double) arguments[2],
-                                entity.worldObj));
+                        else attackTarget = nearestEntity(arguments, entity);
+                        if (!(attackTarget instanceof EntityLivingBase)) {
+                            // Boats, minecarts and items can be "nearest"; they cannot be attacked (section 4.7).
+                            entity.setAttackTarget(null);
+                            return new Object[] { false };
+                        }
                         entity.setAttackTarget((EntityLivingBase) attackTarget);
-                        return new Object[] { attackTarget != null };
+                        return new Object[] { true };
 
                     case 11:
                         if (arguments.length < 3) throw new LuaException("Too few arguments");
@@ -266,9 +281,10 @@ public class LuaObjectEntityControl implements ILuaObject {
                             throw new LuaException("Bad argument #3 (expected number)");
                         if (!ItemNanoSwarm.doInstruction(id, entity)) return new Object[] { false };
                         PathNavigate navigator = ((EntityLivingAccessor) entity).ppp$getNavigator();
-                        navigator.setPath(
-                            navigator.getPathToXYZ((Double) arguments[0], (Double) arguments[1], (Double) arguments[2]),
-                            entity.getAIMoveSpeed());
+                        PathEntity path = navigator
+                            .getPathToXYZ((Double) arguments[0], (Double) arguments[1], (Double) arguments[2]);
+                        if (path == null) return new Object[] { false };
+                        navigator.setPath(path, entity.getAIMoveSpeed());
                         break;
 
                     case 12:

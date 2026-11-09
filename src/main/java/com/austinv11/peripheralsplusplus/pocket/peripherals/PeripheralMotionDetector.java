@@ -30,7 +30,6 @@ public class PeripheralMotionDetector extends MountedPeripheral {
             oldLocation = new Location(entity);
             setPitchAndYaw(entity);
         }
-        MinecraftForge.EVENT_BUS.register(this);
     }
 
     private void setPitchAndYaw(Entity entity) {
@@ -89,12 +88,18 @@ public class PeripheralMotionDetector extends MountedPeripheral {
     @Override
     public void attach(IComputerAccess computer) {
         this.computer = computer;
+        // Register here rather than in the constructor: a pocket upgrade peripheral is rebuilt on every
+        // invalidatePeripheral(), and the constructor registration leaked one permanent listener per rebuild
+        // (CODE_REVIEW.md section 4.15).
+        MinecraftForge.EVENT_BUS.unregister(this);
+        MinecraftForge.EVENT_BUS.register(this);
         super.attach(computer);
     }
 
     @Override
     public void detach(IComputerAccess computer) {
         this.computer = null;
+        MinecraftForge.EVENT_BUS.unregister(this);
         super.detach(computer);
     }
 

@@ -18,6 +18,7 @@ import net.minecraftforge.fluids.FluidTank;
 import net.minecraftforge.fluids.IFluidContainerItem;
 import net.minecraftforge.fluids.IFluidHandler;
 
+import com.austinv11.peripheralsplusplus.PeripheralsPlusPlus;
 import com.austinv11.peripheralsplusplus.mixins.early.ItemBucketAccessor;
 import com.austinv11.peripheralsplusplus.reference.Config;
 
@@ -113,6 +114,17 @@ public class PeripheralTank extends MountedPeripheral {
                             return new Object[] { 0 };
                         }
 
+                        // Only the two fluids that have a vanilla bucket are supported; the old if/else-if had no
+                        // else, so any other bucket type had its fluid drained and got nothing back.
+                        ItemStack filledBucket = null;
+                        if (fluidTank.getFluid()
+                            .getFluid()
+                            .getBlock() == Blocks.water) filledBucket = new ItemStack(Items.water_bucket);
+                        else if (fluidTank.getFluid()
+                            .getFluid()
+                            .getBlock() == Blocks.lava) filledBucket = new ItemStack(Items.lava_bucket);
+                        if (filledBucket == null) return new Object[] { 0 };
+
                         // Find a slot to put the full bucket in.
                         if (fillStack.stackSize > 1) {
                             int emptySlot = getFirstEmptySlotIndex(turtle.getInventory());
@@ -124,18 +136,8 @@ public class PeripheralTank extends MountedPeripheral {
                             fillSlot = emptySlot;
                         }
 
-                        // Move the fluid
-                        if (fluidTank.getFluid()
-                            .getFluid()
-                            .getBlock() == Blocks.water) {
-                            turtle.getInventory()
-                                .setInventorySlotContents(fillSlot, new ItemStack(Items.water_bucket));
-                        } else if (fluidTank.getFluid()
-                            .getFluid()
-                            .getBlock() == Blocks.lava) {
-                                turtle.getInventory()
-                                    .setInventorySlotContents(fillSlot, new ItemStack(Items.lava_bucket));
-                            }
+                        turtle.getInventory()
+                            .setInventorySlotContents(fillSlot, filledBucket);
                         fluidTank.drain(1000, true);
 
                         doUpdate = true;
@@ -149,28 +151,28 @@ public class PeripheralTank extends MountedPeripheral {
                             }
 
                             // Check that the fluids are equal
-                            if (!fluidTank.getFluid()
-                                .isFluidEqual(containerItem.getFluid(fillStack))) {
-                                // Make sure that the container is not empty.
-                                if (containerItem.getFluid(fillStack) != null) {
-                                    return new Object[] { 0 };
-                                }
-                            }
-
-                            // Check that there is room in the container
-                            if (containerItem.getFluid(fillStack) != null
-                                && containerItem.getFluid(fillStack).amount + 1000
-                                    > containerItem.getCapacity(fillStack)) {
+                            FluidStack containerFluid = containerItem.getFluid(fillStack);
+                            if (containerFluid != null && !fluidTank.getFluid()
+                                .isFluidEqual(containerFluid)) {
                                 return new Object[] { 0 };
                             }
 
-                            containerItem.fill(fillStack, new FluidStack(fluidTank.getFluid(), 1000), true);
-                            fluidTank.drain(1000, true);
+                            // Check that there is room in the container
+                            if (containerFluid != null
+                                && containerFluid.amount + 1000 > containerItem.getCapacity(fillStack)) {
+                                return new Object[] { 0 };
+                            }
+
+                            // Fill only as much as the item accepts, and only drain that much from the tank.
+                            int filled = containerItem
+                                .fill(fillStack, new FluidStack(fluidTank.getFluid(), 1000), true);
+                            if (filled <= 0) return new Object[] { 0 };
+                            fluidTank.drain(filled, true);
 
                             doUpdate = true;
-                            return new Object[] { 1000 };
+                            return new Object[] { filled };
                         } catch (Exception e) {
-                            e.printStackTrace();
+                            PeripheralsPlusPlus.LOGGER.error("Unable to fill a fluid container: " + e.getMessage());
                         }
                     }
                     return new Object[] { 0 };
@@ -227,24 +229,30 @@ public class PeripheralTank extends MountedPeripheral {
                             }
                             fluidStack = new FluidStack(FluidContainerRegistry.getFluidForFilledItem(drainStack), 1000);
                         } else {
-                            fluidStack = new FluidStack(
-                                ((IFluidContainerItem) drainStack.getItem()).getFluid(drainStack),
-                                1000);
+                            FluidStack containerFluid = ((IFluidContainerItem) drainStack.getItem())
+                                .getFluid(drainStack);
+                            if (containerFluid == null || containerFluid.amount < 1000) return new Object[] { 0 };
+                            fluidStack = new FluidStack(containerFluid, 1000);
                         }
-                        fluidTank.fill(fluidStack, true);
+                        int accepted = fluidTank.fill(fluidStack, true);
+                        if (accepted <= 0) return new Object[] { 0 };
 
                         if (drainStack.getItem() instanceof ItemBucket) {
                             turtle.getInventory()
                                 .setInventorySlotContents(drainSlot, new ItemStack(Items.bucket));
                         } else {
+                            // Only drain what the tank actually accepted, and honour the drain result.
                             IFluidContainerItem containerItem = (IFluidContainerItem) drainStack.getItem();
-                            containerItem.drain(drainStack, 1000, true);
+                            FluidStack drained = containerItem.drain(drainStack, accepted, true);
+                            if (drained == null || drained.amount < accepted) {
+                                fluidTank.drain(accepted - (drained == null ? 0 : drained.amount), true);
+                            }
                         }
 
                         doUpdate = true;
-                        return new Object[] { 1000 };
+                        return new Object[] { accepted };
                     } catch (Exception e) {
-                        e.printStackTrace();
+                        PeripheralsPlusPlus.LOGGER.error("Unable to drain a fluid container: " + e.getMessage());
                     }
                 case 3:
                 case 4:
@@ -390,7 +398,7 @@ public class PeripheralTank extends MountedPeripheral {
                     return new Object[] { 0 };
             }
         } catch (Exception e) {
-            e.printStackTrace();
+            PeripheralsPlusPlus.LOGGER.error("Tank operation failed: " + e.getMessage());
         }
         return new Object[0];
     }

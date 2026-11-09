@@ -113,7 +113,7 @@ public class LuaObjectHUD implements ILuaObject {
                 if (arguments.length > 3) width = (int) (double) (Double) arguments[3];
                 if (arguments.length > 4) height = (int) (double) (Double) arguments[4];
                 if (arguments.length > 5) u = (int) (double) (Double) arguments[5];
-                if (arguments.length > 36) v = (int) (double) (Double) arguments[6];
+                if (arguments.length > 6) v = (int) (double) (Double) arguments[6];
                 DrawTextureCommand command = new DrawTextureCommand();
                 command.resource = (String) arguments[0];
                 command.x = (int) (double) (Double) arguments[1];
@@ -250,7 +250,7 @@ public class LuaObjectHUD implements ILuaObject {
                 if (!(arguments[2] instanceof Double)) throw new LuaException("Bad argument #3 (expected number)");
                 if (!(arguments[3] instanceof Double)) throw new LuaException("Bad argument #4 (expected number)");
                 if (!(arguments[4] instanceof Double)) throw new LuaException("Bad argument #5 (expected number)");
-                if (arguments.length > 6 && !(arguments[5] instanceof String))
+                if (arguments.length > 5 && !(arguments[5] instanceof String))
                     throw new LuaException("Bad argument #6 (expected string)");
                 AddTextFieldCommand addTextFieldCommand = new AddTextFieldCommand();
                 addTextFieldCommand.id = (int) (double) (Double) arguments[0];

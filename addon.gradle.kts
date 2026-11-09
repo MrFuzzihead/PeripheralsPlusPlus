@@ -126,16 +126,16 @@ tasks.named<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
             limit {
                 counter = "LINE"
                 value = "COVEREDRATIO"
-                // This is a regression guard at the current baseline, not a target. The mod ships 6511 measurable
-                // lines, so the landing baseline is ~4%. CODE_REVIEW.md section 10.4 lists the ratchet: raise this
-                // in the same PR that adds each test class, to 65% line / 50% branch once the Phase 1-2 refactors
-                // (inventory helper, LuaArgs adoption) land.
-                minimum = BigDecimal("0.04")
+                // This is a regression guard at the current baseline, not a target. The mod ships 6450 measurable
+                // lines and the suite currently covers ~7.6%. CODE_REVIEW.md section 10.4 lists the ratchet: raise
+                // this in the same PR that adds each test class, to 65% line / 50% branch once the Phase 1-2
+                // refactors (inventory helper, LuaArgs adoption) have landed.
+                minimum = BigDecimal("0.07")
             }
             limit {
                 counter = "BRANCH"
                 value = "COVEREDRATIO"
-                minimum = BigDecimal("0.04")
+                minimum = BigDecimal("0.07")
             }
         }
     }

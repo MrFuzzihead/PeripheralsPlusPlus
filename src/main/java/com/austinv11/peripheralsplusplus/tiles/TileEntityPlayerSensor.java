@@ -1,6 +1,10 @@
 package com.austinv11.peripheralsplusplus.tiles;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.List;
 
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.nbt.NBTTagCompound;
@@ -84,34 +88,40 @@ public class TileEntityPlayerSensor extends MountedTileEntity {
         if (!Config.additionalMethods)
             throw new LuaException("Additional methods for player sensors have been disabled");
         if (method == 0) {
-            try {
-                if (arguments.length > 0 && !(arguments[0] instanceof Double))
-                    throw new LuaException("Bad argument #1 (expected number)");
-                synchronized (this) {
-                    double range = Config.sensorRange;
-                    if (arguments.length > 0) range = (Double) arguments[0];
-
-                    HashMap<String, Double> map = new HashMap<String, Double>();
-                    for (Object entity : this.worldObj.playerEntities) {
-                        EntityPlayer player = (EntityPlayer) entity;
-                        map.put(
-                            player.getDisplayName(),
-                            Math.abs(location.getX() - player.posX + (location.getZ() - player.posZ)));
-                    }
-                    HashMap<Integer, HashMap<String, Object>> returnVal = new HashMap<Integer, HashMap<String, Object>>();
-                    int i = 1;
-                    for (String player : map.keySet()) {
-                        HashMap<String, Object> table = new HashMap<String, Object>();
-                        table.put("player", player);
-                        table.put("distance", map.get(player));
-                        returnVal.put(i, table);
-                        i++;
-                    }
-                    return new Object[] { returnVal };
-                }
-            } catch (Exception e) {
-                e.printStackTrace();
+            if (arguments.length > 0 && !(arguments[0] instanceof Double))
+                throw new LuaException("Bad argument #1 (expected number)");
+            // The range argument used to be parsed and then ignored, and the distance was |dx + dz| with no Y term
+            // (CODE_REVIEW.md section 4.13).
+            double range = arguments.length > 0 ? (Double) arguments[0] : Config.sensorRange;
+            if (range < 0) range = Double.MAX_VALUE;
+            Location from = location;
+            if (from == null || from.getWorld() == null) throw new LuaException("Sensor is not in a world");
+            // Nearest first: the old code emitted a HashMap in hash order, so the Lua table order was arbitrary.
+            List<Object[]> found = new ArrayList<Object[]>();
+            for (Object entity : from.getWorld().playerEntities) {
+                EntityPlayer player = (EntityPlayer) entity;
+                double distance = Math.sqrt(
+                    Math.pow(from.getX() - player.posX, 2) + Math.pow(from.getY() - player.posY, 2)
+                        + Math.pow(from.getZ() - player.posZ, 2));
+                if (distance <= range) found.add(new Object[] { player.getDisplayName(), distance });
             }
+            Collections.sort(found, new Comparator<Object[]>() {
+
+                @Override
+                public int compare(Object[] a, Object[] b) {
+                    return Double.compare((Double) a[1], (Double) b[1]);
+                }
+            });
+            HashMap<Integer, HashMap<String, Object>> returnVal = new HashMap<Integer, HashMap<String, Object>>();
+            int i = 1;
+            for (Object[] entry : found) {
+                HashMap<String, Object> table = new HashMap<String, Object>();
+                table.put("player", entry[0]);
+                table.put("distance", entry[1]);
+                returnVal.put(i, table);
+                i++;
+            }
+            return new Object[] { returnVal };
         } else if (method == 1) {
             if (arguments.length > 0 && !(arguments[0] instanceof Boolean))
                 throw new LuaException("Bad argument #1 (expected boolean)");

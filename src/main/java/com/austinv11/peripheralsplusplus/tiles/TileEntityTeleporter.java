@@ -52,7 +52,10 @@ public class TileEntityTeleporter extends MountedTileEntity {
         super.readFromNBT(nbttagcompound);
         if (nbttagcompound.hasKey("tTag")) tag = nbttagcompound.getString("tTag");
         NBTTagList links = nbttagcompound.getTagList("links", Constants.NBT.TAG_COMPOUND);
-        for (int i = 0; i < links.tagCount(); i++) {
+        // Clear first: appending to the previous contents duplicated every link on each chunk reload, and addLink
+        // then threw the new link away (CODE_REVIEW.md section 4.12).
+        this.links.clear();
+        for (int i = 0; i < links.tagCount() && this.links.size() < getMaxLinks(); i++) {
             NBTTagCompound link = links.getCompoundTagAt(i);
             if (link.hasKey("linkX") && link.hasKey("linkY") && link.hasKey("linkZ") && link.hasKey("linkDim")) {
                 this.links.add(
@@ -142,21 +145,18 @@ public class TileEntityTeleporter extends MountedTileEntity {
                             * Config.teleporterPenalty))))
                 throw new LuaException("Not enough fuel");
             boolean result = turtle.teleportTo(destWorld, linkToX, linkToY, linkToZ);
-            destWorld.markBlockForUpdate(linkToX, linkToY, linkToZ);
-            worldObj.markBlockForUpdate(
-                xCoord + Facing.offsetsXForSide[getBlockMetadata()],
-                yCoord + Facing.offsetsYForSide[getBlockMetadata()],
-                zCoord + Facing.offsetsZForSide[getBlockMetadata()]);
-            destWorld.notifyBlockChange(linkToX, linkToY, linkToZ, te.blockType);
-            worldObj.notifyBlockChange(
-                xCoord + Facing.offsetsXForSide[getBlockMetadata()],
-                yCoord + Facing.offsetsYForSide[getBlockMetadata()],
-                zCoord + Facing.offsetsZForSide[getBlockMetadata()],
-                null);
             if (result) {
-                // int flag = worldObj.provider.dimensionId != destWorld.provider.dimensionId ? 1 : 0;
-                // onTeleport((byte)flag);TODO
-                // teleporter.onTeleport((byte)flag);
+                destWorld.markBlockForUpdate(linkToX, linkToY, linkToZ);
+                destWorld.notifyBlockChange(linkToX, linkToY, linkToZ, destWorld.getBlock(linkToX, linkToY, linkToZ));
+                worldObj.markBlockForUpdate(
+                    xCoord + Facing.offsetsXForSide[getBlockMetadata()],
+                    yCoord + Facing.offsetsYForSide[getBlockMetadata()],
+                    zCoord + Facing.offsetsZForSide[getBlockMetadata()]);
+                worldObj.notifyBlockChange(
+                    xCoord + Facing.offsetsXForSide[getBlockMetadata()],
+                    yCoord + Facing.offsetsYForSide[getBlockMetadata()],
+                    zCoord + Facing.offsetsZForSide[getBlockMetadata()],
+                    null);
             }
             return new Object[] { result };
         } else if (method == 2) {
@@ -168,7 +168,9 @@ public class TileEntityTeleporter extends MountedTileEntity {
                 map2.put("y", links.get(i).link.posY);
                 map2.put("z", links.get(i).link.posZ);
                 map2.put("name", name);
-                map1.put(i, map2.clone());
+                // Lua tables are 1-based everywhere else in this mod; getLinks used to start at 0 while
+                // teleport(index) was 1-based (CODE_REVIEW.md section 4.12).
+                map1.put(i + 1, map2.clone());
             }
             return new Object[] { map1 };
         } else if (method == 3) {
@@ -308,9 +310,18 @@ public class TileEntityTeleporter extends MountedTileEntity {
         }
     }
 
+    /**
+     * Adds a link, keeping the oldest one when the teleporter is already at {@link #getMaxLinks()}.
+     *
+     * @param linkDim the dimension of the target teleporter
+     * @param link    the target teleporter's position
+     * @return the number of links after the call
+     */
     public int addLink(int linkDim, ChunkCoordinates link) {
+        // The old `while (size > max) pop()` popped the link that had just been pushed, so adding a second link
+        // silently did nothing.
+        while (!links.isEmpty() && links.size() >= getMaxLinks()) links.remove(0);
         links.add(new LinkData(linkDim, link));
-        while (links.size() > getMaxLinks()) links.pop();
         return links.size();
     }
 
