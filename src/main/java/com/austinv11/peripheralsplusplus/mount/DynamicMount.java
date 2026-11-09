@@ -42,7 +42,31 @@ public class DynamicMount implements IMount {
     private final String directory;
 
     public DynamicMount(IPeripheral peripheral) {
-        this.directory = getSafeType(peripheral);
+        this(getSafeType(peripheral));
+    }
+
+    /**
+     * @param directory the docs directory to expose, i.e. one of the entries in the Lua {@code index.json}
+     */
+    public DynamicMount(String directory) {
+        this.directory = directory;
+    }
+
+    /**
+     * The mount location this instance should be mounted at.
+     *
+     * <p>
+     * Each peripheral gets its own path below {@link #DIRECTORY}. Mounting everything at {@code /ppp} means
+     * ComputerCraft's {@code findFreeLocation} returns {@code null} for the second peripheral (it refuses to mount
+     * over an existing path), so only the first peripheral's scripts would ever be visible. See CODE_REVIEW.md
+     * section 3.3.
+     * </p>
+     *
+     * @param suffix disambiguator for a second peripheral of the same type, or empty for the first
+     * @return an absolute mount path such as {@code /ppp/chatBox}
+     */
+    public String mountPath(String suffix) {
+        return DIRECTORY + "/" + directory + suffix;
     }
 
     /**
@@ -159,5 +183,12 @@ public class DynamicMount implements IMount {
     private static String getSafeType(IPeripheral peripheral) {
         // The analyzers share one family of scripts but are registered per species.
         return peripheral instanceof TileEntityAnalyzer ? "analyzers" : peripheral.getType();
+    }
+
+    /**
+     * @return the docs directory this mount exposes
+     */
+    public String getDirectory() {
+        return directory;
     }
 }

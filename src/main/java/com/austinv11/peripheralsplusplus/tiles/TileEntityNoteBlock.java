@@ -5,6 +5,7 @@ import net.minecraft.world.World;
 
 import com.austinv11.collectiveframework.minecraft.utils.Location;
 import com.austinv11.peripheralsplusplus.PeripheralsPlusPlus;
+import com.austinv11.peripheralsplusplus.lua.LuaArgs;
 import com.austinv11.peripheralsplusplus.network.ParticlePacket;
 import com.austinv11.peripheralsplusplus.reference.Config;
 
@@ -70,24 +71,14 @@ public class TileEntityNoteBlock extends MountedTileEntity {
         return new Object[0];
     }
 
-    private void checkPlaySound(Object[] arguments) throws LuaException {
-        // Argument checking
-        if (arguments.length < 1) {
-            throw new LuaException("Expected at least 1 argument");
-        }
-        if (!(arguments[0] instanceof String)) {
-            throw new LuaException("First argument expected to be a string");
-        }
-        if (arguments.length > 1 && !(arguments[1] instanceof Double)) {
-            throw new LuaException("Second argument expected to be a number");
-        }
-        if (arguments.length > 2 && !(arguments[2] instanceof Double)) {
-            throw new LuaException("Third argument expected to be a number");
-        }
-
-        String sound = (String) arguments[0];
-        double volume = (arguments.length > 1) ? (Double) arguments[1] : 1.0f;
-        double pitch = (arguments.length > 2) ? (Double) arguments[1] : 1.0f;
+    private void checkPlaySound(Object[] rawArguments) throws LuaException {
+        LuaArgs arguments = LuaArgs.of(rawArguments)
+            .atLeast(1);
+        String sound = arguments.string(0);
+        double volume = arguments.number(1, 1.0d);
+        // This used to read argument #2 (the volume) as the pitch.
+        double pitch = arguments.number(2, 1.0d);
+        if (location.getWorld() == null) return;
         location.getWorld()
             .playSoundEffect(
                 location.getX() + 0.5D,
@@ -98,24 +89,18 @@ public class TileEntityNoteBlock extends MountedTileEntity {
                 (float) pitch);
     }
 
-    private void checkPlayNote(Object[] arguments) throws LuaException {
-        // Argument checking
-        if (arguments.length < 2) {
-            throw new LuaException("Expected 2 arguments");
-        } else if (!(arguments[0] instanceof Double)) {
-            throw new LuaException("First argument expected to be a number");
-        } else if (!(arguments[1] instanceof Double)) {
-            throw new LuaException("Second argument expected to be a number");
-        }
+    private void checkPlayNote(Object[] rawArguments) throws LuaException {
+        LuaArgs arguments = LuaArgs.of(rawArguments)
+            .atLeast(2);
 
         // Check instrument
-        int instrument = ((Double) arguments[0]).intValue();
+        int instrument = arguments.integer(0);
         if (instrument < 0 || instrument >= instruments.length) {
             throw new LuaException("Invalid instrument");
         }
 
         // Check note
-        int note = ((Double) arguments[1]).intValue();
+        int note = arguments.integer(1);
         if (note < 0 || note > MAX_NOTES) {
             throw new LuaException("Invalid note");
         }

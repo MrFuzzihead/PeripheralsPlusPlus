@@ -88,15 +88,16 @@ public class TileEntityMEBridge extends MountedTileEntity implements IActionHost
 
     @Override
     public void updateEntity() {
-        if (!worldObj.isRemote) if (!initialized) {
-            if (placed != null) getNode().setPlayerID(
-                AEApi.instance()
-                    .registries()
-                    .players()
-                    .getID(placed.getGameProfile()));
-            getNode().updateState();
-            initialized = true;
-        }
+        if (worldObj.isRemote || initialized) return;
+        IGridNode gridNode = getNode();
+        if (gridNode == null) return;
+        if (placed != null) gridNode.setPlayerID(
+            AEApi.instance()
+                .registries()
+                .players()
+                .getID(placed.getGameProfile()));
+        gridNode.updateState();
+        initialized = true;
     }
 
     @Override
@@ -113,6 +114,8 @@ public class TileEntityMEBridge extends MountedTileEntity implements IActionHost
     public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] arguments)
         throws LuaException, InterruptedException {
         if (!Config.enableMEBridge) throw new LuaException("ME Bridges have been disabled");
+        if (node == null || node.getGrid() == null)
+            throw new LuaException("The ME Bridge is not connected to a network");
         IMEMonitor<IAEItemStack> monitor = ((IStorageGrid) node.getGrid()
             .getCache(IStorageGrid.class)).getItemInventory();
         // try {
@@ -366,8 +369,11 @@ public class TileEntityMEBridge extends MountedTileEntity implements IActionHost
 
     private IGridNode getNode() {
         if (worldObj == null || worldObj.isRemote) return null;
-        return node = AEApi.instance()
+        // Create once. This used to call createGridNode(this) on every invocation, which orphaned the node loaded
+        // from NBT (leaking its AE channel) and created a second one for updateState (CODE_REVIEW.md section 3.4).
+        if (node == null) node = AEApi.instance()
             .createGridNode(this);
+        return node;
     }
 
     @Override

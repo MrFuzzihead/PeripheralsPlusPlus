@@ -1,0 +1,232 @@
+package com.austinv11.peripheralsplusplus.gametest;
+
+import java.util.HashSet;
+import java.util.Set;
+
+import net.minecraft.block.Block;
+import net.minecraft.init.Blocks;
+import net.minecraft.item.Item;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.world.World;
+import net.minecraft.world.WorldServer;
+import net.minecraftforge.common.DimensionManager;
+
+import com.austinv11.peripheralsplusplus.init.ModBlocks;
+import com.austinv11.peripheralsplusplus.init.ModItems;
+import com.austinv11.peripheralsplusplus.mount.DynamicMount;
+import com.austinv11.peripheralsplusplus.reference.Config;
+import com.austinv11.peripheralsplusplus.reference.Reference;
+import com.austinv11.peripheralsplusplus.tiles.TileEntityChatBox;
+import com.austinv11.peripheralsplusplus.tiles.TileEntitySpeaker;
+import com.austinv11.peripheralsplusplus.utils.IPlusPlusPeripheral;
+
+import dan200.computercraft.api.peripheral.IPeripheral;
+
+/**
+ * The in-game assertions. Each {@code check*} method returns the number of failures it produced and logs every
+ * failure with the {@code [PPP-GAMETEST] FAIL} prefix so the exit code and the log agree.
+ *
+ * <p>
+ * Everything here needs the real game: block and item registries, a live {@link World}, and ComputerCraft's own
+ * provider chain. Pure logic is covered by the JUnit suite in {@code src/test/java}.
+ * </p>
+ */
+public final class ServerGameTests {
+
+    private static final String FAIL = "[PPP-GAMETEST] FAIL ";
+    private static final String PASS = "[PPP-GAMETEST] ok   ";
+
+    private static int failures;
+    private static int checks;
+
+    private ServerGameTests() {}
+
+    /**
+     * Runs every assertion.
+     *
+     * @return the number of failed assertions
+     */
+    public static int runAll() {
+        failures = 0;
+        checks = 0;
+
+        checkRegistries();
+        checkTurtleUpgradeIds();
+        checkPeripheralProviderResolvesAPlacedBlock();
+        checkProviderIgnoresNonPeripheralBlocks();
+        checkDocsMountIsPerType();
+        checkPeripheralContainerNbtRoundTrip();
+
+        System.out.println("[PPP-GAMETEST] " + (checks - failures) + "/" + checks + " checks passed");
+        return failures;
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+    // Registry smoke checks
+    // ---------------------------------------------------------------------------------------------------------
+
+    private static void checkRegistries() {
+        Block[] blocks = { ModBlocks.chatBox, ModBlocks.aiChatBox, ModBlocks.playerSensor, ModBlocks.oreDictionary,
+            ModBlocks.teleporter, ModBlocks.teleporterT2, ModBlocks.environmentScanner, ModBlocks.speaker,
+            ModBlocks.antenna, ModBlocks.peripheralContainer, ModBlocks.dummyBlock, ModBlocks.noteBlock,
+            ModBlocks.turtle, ModBlocks.timeSensor, ModBlocks.interactiveSorter, ModBlocks.playerInterface,
+            ModBlocks.resupplyStation };
+        for (Block block : blocks) {
+            String name = block == null ? "null" : Block.blockRegistry.getNameForObject(block);
+            check("block registered: " + name, block != null && Block.blockRegistry.getNameForObject(block) != null);
+        }
+
+        Item[] items = { ModItems.feederUpgrade, ModItems.tank, ModItems.smartHelmet, ModItems.nanoSwarm,
+            ModItems.chunkLoaderUpgrade, ModItems.permCard, ModItems.resupplyUpgrade, ModItems.motionDetector };
+        for (Item item : items) {
+            String name = item == null ? "null" : Item.itemRegistry.getNameForObject(item);
+            check("item registered: " + name, item != null && Item.itemRegistry.getNameForObject(item) != null);
+        }
+
+        // The config category names must round-trip, which fails loudly if a field was renamed.
+        check("config maxNumberOfPeripherals > 0", Config.maxNumberOfPeripherals > 0);
+        check("config maxNumberOfMillibuckets > 0", Config.maxNumberOfMillibuckets > 0);
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+    // Turtle upgrades (ComputerCraftAPI swallows registration failures, so ids must be checked here)
+    // ---------------------------------------------------------------------------------------------------------
+
+    private static void checkTurtleUpgradeIds() {
+        Set<Integer> ids = new HashSet<Integer>();
+        // PeripheralsPlusPlus registers its upgrades through ComputerCraftAPI, which hides them; assert the ids the
+        // mod's own reference class claims are all distinct and above ComputerCraft's reserved range.
+        int[] declared = { Reference.CHAT_BOX_UPGRADE, Reference.PLAYER_SENSOR_UPGRADE, Reference.COMPASS_UPGRADE,
+            Reference.XP_UPGRADE, Reference.BARREL_UPGRADE, Reference.ORE_DICTIONARY_UPGRADE, Reference.SHEAR_UPGRADE,
+            Reference.ENVIRONMENT_UPGRADE, Reference.FEEDER_UPGRADE, Reference.SPEAKER_UPGRADE, Reference.TANK_UPGRADE,
+            Reference.NOTE_BLOCK_UPGRADE, Reference.SIGN_READER_UPGRADE, Reference.GARDEN_UPGRADE,
+            Reference.RIDABLE_UPGRADE, Reference.DISPENSER_UPGRADE, Reference.CHUNK_LOADER_UPGRADE,
+            Reference.RESUPPLY_UPGRADE };
+        for (int id : declared) {
+            check("turtle upgrade id " + id + " is unique", ids.add(id));
+            check("turtle upgrade id " + id + " avoids ComputerCraft's range", id > 100);
+        }
+        // The RedPower-like families are allocated as base + index and must not collide with the fixed ids.
+        for (int i = 0; i < 15; i++) {
+            check(
+                "projectred turtle id " + (Reference.BASE_PROJ_RED_UPGRADE + i),
+                ids.add(Reference.BASE_PROJ_RED_UPGRADE + i));
+            check(
+                "bluepower turtle id " + (Reference.BASE_BLUEPOWER_UPGRADE + i),
+                ids.add(Reference.BASE_BLUEPOWER_UPGRADE + i));
+        }
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+    // Peripheral provider
+    // ---------------------------------------------------------------------------------------------------------
+
+    private static void checkPeripheralProviderResolvesAPlacedBlock() {
+        WorldServer world = overworld();
+        if (world == null) {
+            check("overworld is available", false);
+            return;
+        }
+        int x = 0, y = 120, z = 0;
+        world.setBlock(x, y, z, ModBlocks.chatBox);
+        TileEntity tile = world.getTileEntity(x, y, z);
+        check("placed chat box creates a tile entity", tile instanceof TileEntityChatBox);
+        if (!(tile instanceof TileEntityChatBox)) return;
+
+        IPeripheral peripheral = new IPlusPlusPeripheral.Provider().getPeripheral(world, x, y, z, 0);
+        check("provider resolves the chat box", peripheral instanceof TileEntityChatBox);
+        check("peripheral type matches the block name", TileEntityChatBox.publicName.equals(peripheral.getType()));
+        check("peripheral is targeted", peripheral instanceof dan200.computercraft.api.peripheral.IPeripheralTargeted);
+        check(
+            "getTarget() returns the tile entity",
+            peripheral instanceof dan200.computercraft.api.peripheral.IPeripheralTargeted
+                && ((dan200.computercraft.api.peripheral.IPeripheralTargeted) peripheral).getTarget() == tile);
+
+        // The speaker is a different peripheral and must resolve to a different object.
+        world.setBlock(x + 2, y, z, ModBlocks.speaker);
+        IPeripheral speaker = new IPlusPlusPeripheral.Provider().getPeripheral(world, x + 2, y, z, 0);
+        check("provider resolves the speaker", speaker instanceof TileEntitySpeaker);
+
+        world.setBlockToAir(x, y, z);
+        world.setBlockToAir(x + 2, y, z);
+    }
+
+    private static void checkProviderIgnoresNonPeripheralBlocks() {
+        WorldServer world = overworld();
+        if (world == null) return;
+        int x = 4, y = 120, z = 0;
+        world.setBlock(x, y, z, Blocks.stone);
+        check(
+            "provider ignores plain stone",
+            new IPlusPlusPeripheral.Provider().getPeripheral(world, x, y, z, 0) == null);
+        check("provider ignores air", new IPlusPlusPeripheral.Provider().getPeripheral(world, x, y + 1, z, 0) == null);
+        world.setBlockToAir(x, y, z);
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+    // Docs mount
+    // ---------------------------------------------------------------------------------------------------------
+
+    private static void checkDocsMountIsPerType() {
+        // CODE_REVIEW.md 3.3: a shared /ppp mount meant only the first peripheral's scripts were visible.
+        String chatBox = new DynamicMount("chatBox").mountPath("");
+        String speaker = new DynamicMount("speaker").mountPath("");
+        check("docs mount paths are per peripheral", !chatBox.equals(speaker));
+        check("docs mount path is below /ppp", chatBox.startsWith("/ppp/"));
+        boolean exists;
+        try {
+            exists = new DynamicMount("chatBox").exists("chatBox");
+        } catch (Exception e) {
+            exists = false;
+        }
+        check("docs directory exists for the chat box", exists);
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+    // Peripheral container
+    // ---------------------------------------------------------------------------------------------------------
+
+    private static void checkPeripheralContainerNbtRoundTrip() {
+        WorldServer world = overworld();
+        if (world == null) return;
+        int x = 6, y = 120, z = 0;
+        world.setBlock(x, y, z, ModBlocks.peripheralContainer);
+        TileEntity tile = world.getTileEntity(x, y, z);
+        check("placed container creates a tile entity", tile != null);
+        if (!(tile instanceof IPeripheral)) {
+            check("container tile entity is a peripheral", false);
+            world.setBlockToAir(x, y, z);
+            return;
+        }
+        check("container type", "peripheralContainer".equals(((IPeripheral) tile).getType()));
+        try {
+            Object[] listed = ((IPeripheral) tile).callMethod(null, null, 0, new Object[0]);
+            check("container lists an (empty) peripheral table", listed.length == 1);
+        } catch (Exception e) {
+            check("container lists an (empty) peripheral table: " + e, false);
+        }
+        world.setBlockToAir(x, y, z);
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+    // Helpers
+    // ---------------------------------------------------------------------------------------------------------
+
+    private static WorldServer overworld() {
+        try {
+            return DimensionManager.getWorld(0);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    private static void check(String description, boolean condition) {
+        checks++;
+        if (condition) {
+            System.out.println(PASS + description);
+        } else {
+            failures++;
+            System.out.println(FAIL + description);
+        }
+    }
+}

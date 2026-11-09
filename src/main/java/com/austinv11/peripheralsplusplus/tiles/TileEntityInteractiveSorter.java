@@ -94,35 +94,40 @@ public class TileEntityInteractiveSorter extends MountedTileEntityInventory {
                 return new Object[] { true };
             }
             IInventory inventory = getInventoryForSide(dir);
-            int oldSize = getStackInSlot(0).stackSize;
             int[] slots = inventory instanceof ISidedInventory
                 ? ((ISidedInventory) inventory).getAccessibleSlotsFromSide(dir.getOpposite().flag)
                 : getDefaultSlots(inventory);
-            int currentSlot = 0;
-            while (getStackInSlot(0) != null && getStackInSlot(0).stackSize > oldSize - amount
-                && currentSlot < slots.length) {
-                if (inventory.getStackInSlot(slots[currentSlot]) == null) {
-                    inventory.setInventorySlotContents(slots[currentSlot], getStackInSlot(0));
-                    setInventorySlotContents(0, null);
+            int remaining = amount;
+            for (int i = 0; i < slots.length && remaining > 0; i++) {
+                ItemStack source = getStackInSlot(0);
+                if (source == null) break;
+                int slot = slots[i];
+                ItemStack target = inventory.getStackInSlot(slot);
+                int room;
+                if (target == null) {
+                    if (!inventory.isItemValidForSlot(slot, source)) continue;
+                    room = Math.min(inventory.getInventoryStackLimit(), source.getMaxStackSize());
                 } else {
-                    if (!inventory.getStackInSlot(slots[currentSlot])
-                        .isItemEqual(getStackInSlot(0))) {
-                        currentSlot++;
-                        continue;
-                    }
-                    int transferred = MathHelper.clamp_int(
-                        inventory.getStackInSlot(slots[currentSlot]).stackSize + amount,
-                        getStackInSlot(0).stackSize,
-                        getStackInSlot(0).getMaxStackSize());
-
-                    getStackInSlot(0).stackSize -= transferred;
-                    inventory.getStackInSlot(0).stackSize += transferred;
+                    if (!isSameItem(target, source)) continue;
+                    if (!inventory.isItemValidForSlot(slot, source)) continue;
+                    room = Math.min(inventory.getInventoryStackLimit(), target.getMaxStackSize()) - target.stackSize;
                 }
+                if (room <= 0) continue;
+                // decrStackSize gives us our own copy, so the target inventory never shares a stack with us and the
+                // moved amount is exactly `take` (the old code subtracted a clamped *total* from the source, which
+                // produced negative stack sizes -- CODE_REVIEW.md section 4.1).
+                ItemStack taken = decrStackSize(0, Math.min(remaining, room));
+                if (taken == null) break;
+                if (target == null) inventory.setInventorySlotContents(slot, taken);
+                else {
+                    target.stackSize += taken.stackSize;
+                    inventory.setInventorySlotContents(slot, target);
+                }
+                remaining -= taken.stackSize;
                 inventory.markDirty();
                 markDirty();
-                currentSlot++;
             }
-            return new Object[] { getStackInSlot(0) == null || getStackInSlot(0).stackSize != oldSize };
+            return new Object[] { remaining < amount };
 
         } else if (method == 2) {
             ForgeDirection dir;
@@ -142,6 +147,7 @@ public class TileEntityInteractiveSorter extends MountedTileEntityInventory {
                 : getDefaultSlots(inventory);
             int slot = -1;
             if (arguments.length > 2) {
+                if (slots.length == 0) return new Object[] { false };
                 slot = getNearestSlot((int) (double) (Double) arguments[2], slots);
                 if (inventory.getStackInSlot(slot) == null) return new Object[] { false };
             } else {
@@ -152,8 +158,7 @@ public class TileEntityInteractiveSorter extends MountedTileEntityInventory {
                     }
                 } else {
                     if (inventory.getStackInSlot(slot1) != null) {
-                        if (inventory.getStackInSlot(slot1)
-                            .isItemEqual(getStackInSlot(0))) {
+                        if (isSameItem(inventory.getStackInSlot(slot1), getStackInSlot(0))) {
                             slot = slot1;
                             break;
                         }
@@ -161,24 +166,22 @@ public class TileEntityInteractiveSorter extends MountedTileEntityInventory {
                 }
             }
             if (slot == -1) return new Object[] { false };
+            ItemStack source = inventory.getStackInSlot(slot);
+            if (source == null) return new Object[] { false };
             int amount = arguments.length > 1
-                ? MathHelper
-                    .clamp_int((int) (double) (Double) arguments[1], 0, inventory.getStackInSlot(slot).stackSize)
-                : inventory.getStackInSlot(slot).stackSize;
-            int transferred;
-            if (getStackInSlot(0) != null) {
-                transferred = MathHelper.clamp_int(
-                    getStackInSlot(0).stackSize + amount,
-                    getStackInSlot(0).stackSize,
-                    getStackInSlot(0).getMaxStackSize());
-                getStackInSlot(0).stackSize += transferred;
-                inventory.getStackInSlot(slot).stackSize -= transferred;
-            } else {
-                transferred = amount;
-                setInventorySlotContents(
-                    0,
-                    inventory.getStackInSlot(slot)
-                        .splitStack(transferred));
+                ? MathHelper.clamp_int((int) (double) (Double) arguments[1], 0, source.stackSize)
+                : source.stackSize;
+            ItemStack current = getStackInSlot(0);
+            int room = current == null ? Math.min(source.getMaxStackSize(), getInventoryStackLimit())
+                : Math.min(current.getMaxStackSize(), getInventoryStackLimit()) - current.stackSize;
+            int move = Math.min(amount, room);
+            if (move <= 0) return new Object[] { false };
+            ItemStack taken = inventory.decrStackSize(slot, move);
+            if (taken == null) return new Object[] { false };
+            if (current == null) setInventorySlotContents(0, taken);
+            else {
+                current.stackSize += taken.stackSize;
+                setInventorySlotContents(0, current);
             }
             if (inventory.getStackInSlot(slot) != null && inventory.getStackInSlot(slot).stackSize < 1)
                 inventory.setInventorySlotContents(slot, null);
@@ -209,6 +212,18 @@ public class TileEntityInteractiveSorter extends MountedTileEntityInventory {
             }
         }
         return currentSlot;
+    }
+
+    /**
+     * Whether two stacks of the same item can be merged. NBT is part of item identity since 1.7, so a silktouch
+     * variant must not be merged into its plain counterpart.
+     *
+     * @param a the first stack
+     * @param b the second stack
+     * @return true when they are interchangeable
+     */
+    private static boolean isSameItem(ItemStack a, ItemStack b) {
+        return a != null && b != null && a.isItemEqual(b) && ItemStack.areItemStackTagsEqual(a, b);
     }
 
     private int[] getDefaultSlots(IInventory inventory) {

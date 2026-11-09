@@ -40,6 +40,14 @@ public class AIChatRequest {
                     new Object[] { success, response, session.getUUID()
                         .toString() });
             }
-        }.start();
+
+            @Override
+            public String getName() {
+                return "PPP AI Chat Request";
+            }
+        }.startOnce();
+        // startOnce(), not start(): CollectiveFramework 1.0.1 turned start() into a 1 ms scheduler loop (and
+        // made RESTRICT_THREAD_USAGE a no-op), so start() here would re-issue the Cleverbot request forever.
+        // See CODE_REVIEW.md section 3.1.
     }
 }
