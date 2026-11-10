@@ -6,7 +6,7 @@ Gradle build, CI workflows.
 Baseline: ComputerCraft-Legacy **3.3.1**, CollectiveFramework **1.0.1** (updated in `dependencies.gradle`).
 
 The code **compiles cleanly** against both new versions (`./gradlew compileJava` — verified), and `./gradlew check`
-(compile + Spotless + Checkstyle + 51 unit tests + coverage gate + gameTest compilation) passes against them.
+(compile + Spotless + Checkstyle + 422 unit tests + coverage gate + gameTest compilation) passes against them.
 
 The problems below are behavioural, not compilation failures. Most of them were already present; two of them are
 **regressions introduced by the CollectiveFramework 1.0.1 bump** and were release blockers (§3).
@@ -19,10 +19,12 @@ What landed in this pass (items marked ✅ below):
   argument;
 * the full test harness — JUnit 4.13.2 + Mockito 4.11.0 + JaCoCo 0.8.16, a non-shipped `gameTest` source set, a
   `-PsmokeTest` boot hook, and `.github/workflows/smoke-test.yml` (server boot + in-game assertions + Xvfb client);
-* 51 unit tests in 6 classes, plus four new main-source types (`lua/LuaArgs`, `mount/PeripheralMounts`,
-  `SmokeTestHook`, and a reworked `DynamicMount`).
+* 422 unit tests in 36 classes and 158 in-game assertions, plus four new main-source types (`lua/LuaArgs`,
+  `mount/PeripheralMounts`, `SmokeTestHook`, and a reworked `DynamicMount`).
 
-Everything else is a documented backlog, ordered by phase in §9.
+That pass is complete: every P0/P1/P2 item and the P3 tail are fixed, and coverage went from 4.1 % to
+**39.0 % headless / 46.2 % including the in-game run** (§11, §25). Everything that is *not* done is listed in §24
+as blocked on a registry or a `final` field rather than on effort.
 
 ---
 
@@ -59,9 +61,10 @@ Everything else is a documented backlog, ordered by phase in §9.
   of the slot-moving code, six copies of the "1-based Lua table" helper, five copies of `mount`/`detach`).
   §7 lists every duplicate with the target abstraction.
 * **Testing went from nothing to a working harness.** No `src/test`, no JaCoCo and no CI server run
-  (`client-only: true`) existed before; §10 now documents what was added (modelled on
-  `MrFuzzihead/OpenPeripheral`) and what remains: 51 tests in 6 classes, line coverage **4.1 %**, enforced in
-  `check` at the current baseline with an explicit ratchet to 65 % as the §9 phases land.
+  (`client-only: true`) existed before; §10 documents what was added (modelled on
+  `MrFuzzihead/OpenPeripheral`), §11 the coverage campaign, and §25 the in-game JaCoCo wiring. Final state:
+  **422 unit tests in 36 classes** (line coverage 39.0 %) plus **158 in-game assertions** in a non-shipped
+  `gameTest` source set, which bring the union to **46.2 %**.
 * **The mod is a "peripheral provider + Lua bridge" and is therefore unusually testable**: most classes only
   need `net.minecraft.World`/`TileEntity` mocks. §10.2 lists the 60-odd classes that can be tested with no
   game running at all.
@@ -1553,3 +1556,22 @@ minimum of the two uncovered counts.
 the remaining gap is dominated by the entities (`World.provider` is final), `PeripheralTank`/`FluidRegistry`, the ME
 bridge (`AEApi`), and the `TradeHandler` tables — each blocked on a registry or a final field, not on effort. Anything
 past that needs a non-transforming launch, or a per-class union report that JaCoCo cannot produce.
+
+### 25.1 Post-script: the layout bug this campaign missed
+
+Reviewing the branch before opening the PR caught a regression in the §3.3 fix itself. `DynamicMount` was mounted at
+`/ppp/<type>` but *also* still exposed `<type>` as the single directory inside the mount, so a computer saw:
+
+```
+/ppp/chatBox/chatBox/talk.lua     # after the fix, before this correction
+/ppp/chatBox/talk.lua             # intended, and what players had before the fix
+```
+
+Every bundled program's path moved, and nothing failed. `DynamicMountTest` asserted the *internal* structure
+(`exists("chatBox")`, `list("chatBox")`) because that is what the old single `/ppp` mount needed, and the in-game test
+made the same assumption; both were green against the broken layout.
+
+The mount point already carries the type, so the scripts belong at the mount root: `exists("")` is the directory,
+`list("")` returns the scripts, `openForRead("talk.lua")` resolves `analyzers/talk.lua`-style resources relative to
+the mount point. `theMountedLayoutIsUnchangedForPlayers` now pins the *composed* path — mount point plus file name —
+which is the assertion the original tests lacked. Final state: **422 unit tests in 36 classes**, 158 in-game checks.
