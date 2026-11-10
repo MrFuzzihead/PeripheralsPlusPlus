@@ -78,10 +78,15 @@ jobs:
         run: ./gradlew gameTestServer --stacktrace
 
       - name: Check the marker
+        # The mod prints PPP_GAMETEST_OK only after every assertion has passed and the server has to shut down
+        # cleanly; a crash mid-run therefore fails here instead of silently passing.
         run: |
           LOG=$(ls run/server/logs/*.log 2>/dev/null | head -1 || true)
           echo "log: $LOG"
+          test -n "$LOG" || { echo "no server log was written"; exit 1; }
+          grep -E "PPP-GAMETEST\] [0-9]+/[0-9]+ checks passed" "$LOG" || true
           grep -q "PPP_GAMETEST_OK" "$LOG"
+          ! grep -q "PPP_GAMETEST_FAILED" "$LOG"
 
       - name: Upload the log
         if: always()
@@ -110,9 +115,15 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
 
       - name: Install Xvfb and Mesa
-        run: sudo apt-get update && sudo apt-get install -y xvfb libgl1-mesa-dri libgl1-mesa-glx
+        # `libgl1-mesa-glx` was a transitional package and is gone from Ubuntu 24.04, which is what the runner image
+        # is: apt fails with "has no installation candidate" and the step never runs the client.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1 libglx-mesa0 libgl1-mesa-dri libglu1-mesa
 
       - name: Boot the client
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
         run: xvfb-run -a ./gradlew runClient25 -PsmokeTest --stacktrace
 
       - name: Upload the log

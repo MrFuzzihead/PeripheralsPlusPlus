@@ -32,6 +32,12 @@ final class ComputerGameTests {
     /** The block that becomes the probe: a diamond block next to a computer. */
     static final Block PROBE_BLOCK = Blocks.diamond_block;
 
+    /** The ComputerCraft computer block, resolved once. */
+    private static Block computerBlock;
+
+    /** How many times {@link #keepAlive} had to put the computer block back. */
+    private static int restores;
+
     /** Where {@link #prepare} puts the computer. */
     private static int computerX;
     private static int computerY;
@@ -83,7 +89,7 @@ final class ComputerGameTests {
             for (int dz = -2; dz <= 2; dz++)
                 serverWorld.setBlock(computerX + dx, computerY - 1, computerZ + dz, Blocks.stone);
         }
-        Block computerBlock = Block.getBlockFromName("ComputerCraft:CC-Computer");
+        computerBlock = Block.getBlockFromName("ComputerCraft:CC-Computer");
         serverWorld.setBlock(computerX, computerY, computerZ, computerBlock);
         // The probe sits directly next to the computer, so CC resolves it on one of the six sides.
         serverWorld.setBlock(computerX + 1, computerY, computerZ, PROBE_BLOCK);
@@ -97,6 +103,34 @@ final class ComputerGameTests {
         if (ticket != null) {
             net.minecraftforge.common.ForgeChunkManager
                 .forceChunk(ticket, new net.minecraft.world.ChunkCoordIntPair(computerX >> 4, computerZ >> 4));
+        }
+    }
+
+    /**
+     * Keeps the test computer alive. Called on the server thread at the start of every tick by {@link GameTestMod}.
+     *
+     * <p>
+     * A dedicated server that has no players queues every chunk for unload, and the queued chunk's tile entities stay
+     * in {@code loadedTileEntityList} for one more tick. A stale {@code TileComputer} whose block has been discarded
+     * makes ComputerCraft's own {@code updateEntity} throw — {@code TileComputerBase#getBlock()} returns {@code null}
+     * and {@code TileComputer#createComputer} dereferences it — which kills the server before the test can report. That
+     * is what happened on CI (and locally on a fresh world), so the test now re-loads its chunk and, if the block
+     * really is gone, puts it back before the tick loop looks at the tile entity.
+     * </p>
+     */
+    static void keepAlive() {
+        if (world == null || computerBlock == null) return;
+        int chunkX = computerX >> 4;
+        int chunkZ = computerZ >> 4;
+        if (!world.getChunkProvider()
+            .chunkExists(chunkX, chunkZ)) {
+            world.getChunkProvider()
+                .loadChunk(chunkX, chunkZ);
+        }
+        if (world.getBlock(computerX, computerY, computerZ) != computerBlock) {
+            restores++;
+            world.setBlock(computerX, computerY, computerZ, computerBlock);
+            world.setBlock(computerX + 1, computerY, computerZ, PROBE_BLOCK);
         }
     }
 
@@ -138,6 +172,9 @@ final class ComputerGameTests {
         checks += result[1];
         System.out.println(
             "[PPP-GAMETEST] info mounted against a real computer access: " + (result[1] - result[0]) + "/" + result[1]);
+        if (restores > 0) System.out.println(
+            "[PPP-GAMETEST] info the server discarded the computer's chunk " + restores
+                + " time(s); the block was restored each time");
 
         cleanup();
         return new int[] { failures, checks };

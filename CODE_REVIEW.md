@@ -1575,3 +1575,27 @@ The mount point already carries the type, so the scripts belong at the mount roo
 `list("")` returns the scripts, `openForRead("talk.lua")` resolves `analyzers/talk.lua`-style resources relative to
 the mount point. `theMountedLayoutIsUnchangedForPlayers` now pins the *composed* path — mount point plus file name —
 which is the assertion the original tests lacked. Final state: **422 unit tests in 36 classes**, 158 in-game checks.
+
+### 25.2 Post-script: the in-game test's own chunk problem
+
+The first CI run of the in-game job went red, and it was not CI-specific — a *fresh* world reproduces it locally:
+
+```
+Caused by: java.lang.NullPointerException: Cannot invoke
+  "BlockComputerBase.getFamily(...)" because the return value of "TileComputerBase.getBlock()" is null
+	at TileComputerBase.updateEntity(TileComputerBase.java:147)
+```
+
+A dedicated server with **no players** queues every chunk for unload. The chunk's tile entities stay in
+`loadedTileEntityList` for one more tick, so a `TileComputer` whose chunk has been discarded is ticked after its block
+is gone; `getBlock()` then returns `null` and ComputerCraft's own `updateEntity` dereferences it, killing the server
+before the test can report anything. The pre-existing `ForgeChunkManager` ticket did not prevent it.
+
+The test now hooks `TickEvent.ServerTickEvent` (START phase — **FML's** bus in 1.7.10, not Forge's, which is why the
+first attempt at this fix silently did nothing) and re-loads its chunk, restoring the computer block if it really is
+gone. The block was restored 1–2 times per run and the suite then completed 158/158. The count is printed, so a future
+regression in the chunk handling shows up as a number instead of a crash.
+
+Two CI fixes alongside it: `libgl1-mesa-glx` was a transitional package and no longer exists on Ubuntu 24.04
+(`E: Package 'libgl1-mesa-glx' has no installation candidate`), and the game-test marker step now fails loudly when no
+log was written instead of grepping an empty path.

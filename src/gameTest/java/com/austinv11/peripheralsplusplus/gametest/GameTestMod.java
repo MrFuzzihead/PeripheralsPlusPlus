@@ -7,6 +7,8 @@ import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
 import cpw.mods.fml.common.event.FMLServerStartedEvent;
+import cpw.mods.fml.common.eventhandler.SubscribeEvent;
+import cpw.mods.fml.common.gameevent.TickEvent;
 
 /**
  * Test-only mod: a separate, non-shipped {@code @Mod} that asserts Peripherals++ works against the real game.
@@ -48,6 +50,19 @@ public class GameTestMod {
     @Mod.EventHandler
     public void preInit(FMLPreInitializationEvent event) {
         ComputerGameTests.registerProbe();
+        // TickEvent lives on FML's bus in 1.7.10, not on the Forge bus.
+        FMLCommonHandler.instance()
+            .bus()
+            .register(this);
+    }
+
+    /**
+     * Keeps the computer test's chunk loaded. Must be the START phase: the world unloads queued chunks inside
+     * {@code world.tick()}, so restoring the chunk and its block afterwards would be a tick too late.
+     */
+    @SubscribeEvent
+    public void onServerTick(TickEvent.ServerTickEvent event) {
+        if (event.phase == TickEvent.Phase.START) ComputerGameTests.keepAlive();
     }
 
     @Mod.EventHandler
