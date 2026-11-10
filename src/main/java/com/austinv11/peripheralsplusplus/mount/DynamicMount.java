@@ -42,7 +42,31 @@ public class DynamicMount implements IMount {
     private final String directory;
 
     public DynamicMount(IPeripheral peripheral) {
-        this.directory = getSafeType(peripheral);
+        this(getSafeType(peripheral));
+    }
+
+    /**
+     * @param directory the docs directory to expose, i.e. one of the entries in the Lua {@code index.json}
+     */
+    public DynamicMount(String directory) {
+        this.directory = directory;
+    }
+
+    /**
+     * The mount location this instance should be mounted at.
+     *
+     * <p>
+     * Each peripheral gets its own path below {@link #DIRECTORY}. Mounting everything at {@code /ppp} means
+     * ComputerCraft's {@code findFreeLocation} returns {@code null} for the second peripheral (it refuses to mount
+     * over an existing path), so only the first peripheral's scripts would ever be visible. See CODE_REVIEW.md
+     * section 3.3.
+     * </p>
+     *
+     * @param suffix disambiguator for a second peripheral of the same type, or empty for the first
+     * @return an absolute mount path such as {@code /ppp/chatBox}
+     */
+    public String mountPath(String suffix) {
+        return DIRECTORY + "/" + directory + suffix;
     }
 
     /**
@@ -105,35 +129,25 @@ public class DynamicMount implements IMount {
         return normalized;
     }
 
-    /** True if the path addresses the root of this mount or the one directory it exposes. */
-    private boolean isOwnDirectory(String path) {
-        return path.isEmpty() || path.equals(directory);
-    }
-
     @Override
     public boolean exists(String path) throws IOException {
         String normalized = normalize(path);
-        if (isOwnDirectory(normalized)) return getDirectories().containsKey(directory);
-        String[] parts = normalized.split("/", 2);
-        if (!parts[0].equals(directory)) return false;
         List<String> files = getDirectories().get(directory);
-        return files != null && (parts.length == 1 || files.contains(parts[1]));
+        if (files == null) return false;
+        return normalized.isEmpty() || files.contains(normalized);
     }
 
     @Override
     public boolean isDirectory(String path) throws IOException {
-        String normalized = normalize(path);
-        if (isOwnDirectory(normalized)) return getDirectories().containsKey(directory);
-        return false;
+        // The mount root is the only directory: it holds the peripheral's scripts directly.
+        return normalize(path).isEmpty() && getDirectories().containsKey(directory);
     }
 
     @Override
     public void list(String path, List<String> contents) throws IOException {
         List<String> files = getDirectories().get(directory);
-        if (files == null) return;
-        String normalized = normalize(path);
-        if (normalized.isEmpty()) contents.add(directory);
-        else if (normalized.equals(directory)) contents.addAll(files);
+        if (files == null || !normalize(path).isEmpty()) return;
+        contents.addAll(files);
     }
 
     @Override
@@ -148,16 +162,21 @@ public class DynamicMount implements IMount {
 
     private byte[] readBytesFor(String path) throws IOException {
         String normalized = normalize(path);
-        String[] parts = normalized.split("/", 2);
         List<String> files = getDirectories().get(directory);
-        // Only the mounted peripheral's own scripts are readable.
-        if (parts.length != 2 || !parts[0].equals(directory) || files == null || !files.contains(parts[1]))
+        if (normalized.isEmpty() || files == null || !files.contains(normalized))
             throw new IOException("No such file " + path);
-        return readBytes(normalized);
+        return readBytes(directory + "/" + normalized);
     }
 
     private static String getSafeType(IPeripheral peripheral) {
         // The analyzers share one family of scripts but are registered per species.
         return peripheral instanceof TileEntityAnalyzer ? "analyzers" : peripheral.getType();
+    }
+
+    /**
+     * @return the docs directory this mount exposes
+     */
+    public String getDirectory() {
+        return directory;
     }
 }

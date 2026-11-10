@@ -1,7 +1,6 @@
 package com.austinv11.peripheralsplusplus.tiles;
 
-import java.text.SimpleDateFormat;
-import java.util.Date;
+import java.util.Calendar;
 import java.util.HashMap;
 
 import com.austinv11.collectiveframework.utils.TimeProfiler;
@@ -15,7 +14,6 @@ import dan200.computercraft.api.peripheral.IPeripheral;
 public class TileEntityTimeSensor extends MountedTileEntity {
 
     public static String publicName = "timeSensor";
-    private String name = "tileEntityTimeSensor";
 
     private TimeProfiler profiler;
 
@@ -23,18 +21,17 @@ public class TileEntityTimeSensor extends MountedTileEntity {
         super();
     }
 
-    public String getName() {
-        return name;
-    }
-
     @Override
     public String getType() {
         return publicName;
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "getDate", "getTime", "startTimer", "stopTimer" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "getDate", "getTime", "startTimer", "stopTimer" };
+        return METHODS;
     }
 
     @Override
@@ -42,20 +39,22 @@ public class TileEntityTimeSensor extends MountedTileEntity {
         throws LuaException, InterruptedException {
         if (!Config.enableTimeSensor) throw new LuaException("Time Sensors have been disabled!");
         if (method == 0) {
-            String timeStamp = new SimpleDateFormat("yyyy@MM@dd@HH@mm@ss").format(new Date());
+            // Fields read straight off a Calendar: the old code allocated a SimpleDateFormat and a String[] per call
+            // and depended on the default locale (CODE_REVIEW.md section 5.22).
+            Calendar now = Calendar.getInstance();
             HashMap<String, Integer> map = new HashMap<String, Integer>();
-            String[] split = timeStamp.split("@");
-            map.put("year", Integer.valueOf(split[0]));
-            map.put("month", Integer.valueOf(split[1]));
-            map.put("day", Integer.valueOf(split[2]));
-            map.put("hour", Integer.valueOf(split[3]));
-            map.put("minute", Integer.valueOf(split[4]));
-            map.put("second", Integer.valueOf(split[5]));
+            map.put("year", now.get(Calendar.YEAR));
+            map.put("month", now.get(Calendar.MONTH) + 1);
+            map.put("day", now.get(Calendar.DAY_OF_MONTH));
+            map.put("hour", now.get(Calendar.HOUR_OF_DAY));
+            map.put("minute", now.get(Calendar.MINUTE));
+            map.put("second", now.get(Calendar.SECOND));
             return new Object[] { map };
         } else if (method == 1) {
             return new Object[] { System.currentTimeMillis() };
         } else if (method == 2) {
             profiler = new TimeProfiler();
+            return new Object[] { true };
         } else if (method == 3) {
             long time = profiler == null ? 0 : profiler.getTime();
             profiler = null;
@@ -66,6 +65,6 @@ public class TileEntityTimeSensor extends MountedTileEntity {
 
     @Override
     public boolean equals(IPeripheral other) {
-        return (other == this);
+        return this == other;
     }
 }

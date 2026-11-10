@@ -1,14 +1,19 @@
 --[[
 Created by Fxz_y
+
+Usage: nearbyPlayers [range]
 ]]
-tArgs = {...} --Arguements
-range = tArgs[1]
-p = peripheral.find("playerSensor") --Wrapping the peripheral
-if p then
-  data = p.getNearbyPlayers(tonumber(range)) --Getting the distance to and players nearby
-  for k,v in pairs(data) do
-    for l,w in pairs(v) do
-      print(tostring(l)..": "..tostring(w))
-    end
+local range = tonumber(({ ... })[1])
+
+local p = peripheral.find("playerSensor")
+if not p then
+  print("No player sensor attached.")
+  return
+end
+
+local data = range and p.getNearbyPlayers(range) or p.getNearbyPlayers()
+for _, player in pairs(data) do
+  for key, value in pairs(player) do
+    print(tostring(key) .. ": " .. tostring(value))
   end
 end

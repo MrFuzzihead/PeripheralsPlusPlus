@@ -3,7 +3,10 @@ package com.austinv11.peripheralsplusplus.tiles;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
@@ -14,6 +17,7 @@ import net.minecraft.server.MinecraftServer;
 import com.austinv11.collectiveframework.minecraft.utils.NBTHelper;
 import com.austinv11.peripheralsplusplus.PeripheralsPlusPlus;
 import com.austinv11.peripheralsplusplus.items.ItemSmartHelmet;
+import com.austinv11.peripheralsplusplus.lua.LuaArgs;
 import com.austinv11.peripheralsplusplus.lua.LuaObjectEntityControl;
 import com.austinv11.peripheralsplusplus.lua.LuaObjectHUD;
 import com.austinv11.peripheralsplusplus.network.ScaleRequestPacket;
@@ -29,14 +33,15 @@ import dan200.computercraft.api.peripheral.IPeripheral;
 public class TileEntityAntenna extends MountedTileEntity {
 
     public static String publicName = "antenna";
-    private String name = "tileEntityAntenna";
     private int world = 0;
-    public HashMap<IComputerAccess, Boolean> computers = new HashMap<IComputerAccess, Boolean>();
-    private HashMap<Integer, LuaObjectHUD> huds = new HashMap<Integer, LuaObjectHUD>();
-    public static HashMap<UUID, TileEntityAntenna> antenna_registry = new HashMap<UUID, TileEntityAntenna>();
+    /** Attached computers. Filled from computer threads, so it must be concurrent (CODE_REVIEW.md section 5.11). */
+    public final Map<IComputerAccess, Boolean> computers = new ConcurrentHashMap<IComputerAccess, Boolean>();
+    /** HUD handles by computer id. */
+    private final Map<Integer, LuaObjectHUD> huds = new ConcurrentHashMap<Integer, LuaObjectHUD>();
+    public static final Map<UUID, TileEntityAntenna> antenna_registry = new ConcurrentHashMap<UUID, TileEntityAntenna>();
     public UUID identifier;
     public String label;
-    public volatile List<Entity> associatedEntities = new ArrayList<Entity>();
+    public final List<Entity> associatedEntities = new CopyOnWriteArrayList<Entity>();
 
     public TileEntityAntenna() {
         super();
@@ -46,10 +51,6 @@ public class TileEntityAntenna extends MountedTileEntity {
                 .equals(this)) break;
             identifier = UUID.randomUUID();
         }
-    }
-
-    public String getName() {
-        return name;
     }
 
     @Override
@@ -71,22 +72,32 @@ public class TileEntityAntenna extends MountedTileEntity {
         return publicName;
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "getPlayers", /*
+                                                                          * Lists players wearing smart helmets linked
+                                                                          * to this antenna
+                                                                          */
+        "getHUD", /* Returns a hud handle for the given player */
+        "setLabel", /* Sets the label of the antenna */
+        "getLabel", /* Gets the current label of the antenna */
+        // ==Smart Helmet APIs end===
+        "getInfectedEntities", /* Lists the entity ids for all entities currently infected by a nanobot swarm */
+        "getInfectedEntity"/* Gets the handle for a specified entity */ };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "getPlayers", /* Lists players wearing smart helmets linked to this antenna */
-            "getHUD", /* Returns a hud handle for the given player */
-            "setLabel", /* Sets the label of the antenna */
-            "getLabel", /* Gets the current label of the antenna */
-            // ==Smart Helmet APIs end===
-            "getInfectedEntities", /* Lists the entity ids for all entities currently infected by a nanobot swarm */
-            "getInfectedEntity"/* Gets the handle for a specified entity */ };
+        return METHODS;
     }
 
     @Override
-    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] arguments)
+    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] rawArguments)
         throws LuaException, InterruptedException {
-        if (!Config.enableSmartHelmet && method < 6) throw new LuaException("Smart Helmets have been disabled");
-        else if (!Config.enableNanoBots) throw new LuaException("Nano bots have been disabled");
+        LuaArgs arguments = LuaArgs.of(rawArguments);
+        // Smart-helmet methods are 0-3 and the nano-bot methods are 4-5; the two config flags gate different halves of
+        // the API, and the old `else if` blocked the helmet methods when nano bots were disabled (section 4.14).
+        boolean isHelmetMethod = method < 4;
+        if (isHelmetMethod && !Config.enableSmartHelmet) throw new LuaException("Smart Helmets have been disabled");
+        if (!isHelmetMethod && !Config.enableNanoBots) throw new LuaException("Nano bots have been disabled");
         // try {
         switch (method) {
             case 0:// getPlayers
@@ -106,14 +117,13 @@ public class TileEntityAntenna extends MountedTileEntity {
                 }
             case 1:
                 synchronized (this) {
-                    if (arguments.length < 1) throw new LuaException("Not enough arguments");
-                    if (!(arguments[0] instanceof String)) throw new LuaException("Bad argument #1 (expected string)");
-                    if (Util.getPlayer((String) arguments[0]) == null) return new Object[] { null };
-                    LuaObjectHUD obj = new LuaObjectHUD((String) arguments[0], identifier);
+                    String name = arguments.string(0);
+                    if (Util.getPlayer(name) == null) return new Object[] { null };
+                    LuaObjectHUD obj = new LuaObjectHUD(name, identifier);
                     huds.put(computer.getID(), obj);
                     PeripheralsPlusPlus.NETWORK.sendTo(
                         new ScaleRequestPacket(this, computer.getID(), world),
-                        (EntityPlayerMP) Util.getPlayer((String) arguments[0]));
+                        (EntityPlayerMP) Util.getPlayer(name));
                     // ComputerCraft 3.x: suspend until the client reports the HUD resolution instead of blocking
                     return new Object[] { MethodResult.pullEvent(event -> {
                         if (event.length > 0 && "resolution".equals(event[0])) return MethodResult.of(obj);
@@ -123,8 +133,8 @@ public class TileEntityAntenna extends MountedTileEntity {
                 }
             case 2:
                 synchronized (this) {
-                    if (arguments.length != 1) throw new LuaException("Incorrect Arguments!");
-                    this.setLabel(arguments[0].toString());
+                    this.setLabel(arguments.string(0));
+                    return new Object[] { this.getLabel() };
                 }
             case 3:
                 synchronized (this) {
@@ -132,19 +142,22 @@ public class TileEntityAntenna extends MountedTileEntity {
                 }
             case 4:
                 HashMap<Integer, Integer> entities = new HashMap<Integer, Integer>();
-                for (int i = 0; i < associatedEntities.size(); i++) {
-                    entities.put(
-                        i + 1,
-                        associatedEntities.get(i)
-                            .getEntityId());
+                int i = 1;
+                for (Entity entity : associatedEntities) {
+                    // A despawned or killed entity kept reporting forever; drop it instead.
+                    if (entity == null || entity.isDead) {
+                        associatedEntities.remove(entity);
+                        continue;
+                    }
+                    entities.put(i++, entity.getEntityId());
                 }
                 return new Object[] { entities };
-            case 5:
-                if (arguments.length < 1) throw new LuaException("Too few arguments");
-                if (!(arguments[0] instanceof Double)) throw new LuaException("Bad argument #1 (expected number)");
-                Entity ent = entityFromId((int) (double) (Double) arguments[0]);
+            case 5: {
+                int entityId = arguments.integer(0);
+                Entity ent = entityFromId(entityId);
                 if (ent != null) return new Object[] { new LuaObjectEntityControl(identifier, ent) };
-                else throw new LuaException("Entity with id " + arguments[0] + " not found");
+                throw new LuaException("Entity with id " + entityId + " not found");
+            }
         }
         // }catch (Exception e) {
         // e.printStackTrace();
@@ -186,12 +199,14 @@ public class TileEntityAntenna extends MountedTileEntity {
     @Override
     public void detach(IComputerAccess computer) {
         computers.remove(computer);
+        // HUD handles are keyed by computer id; without this they accumulated for the tile entity's lifetime.
+        huds.remove(computer.getID());
         super.detach(computer);
     }
 
     @Override
     public boolean equals(IPeripheral other) {
-        return (this == other);
+        return this == other;
     }
 
     public void onResponse(int id, int width, int height) {

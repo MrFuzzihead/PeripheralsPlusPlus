@@ -23,9 +23,12 @@ public class PeripheralCompass extends MountedPeripheral {
         return "compass";
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "getFacing" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "getFacing" };
+        return METHODS;
     }
 
     @Override
@@ -42,6 +45,6 @@ public class PeripheralCompass extends MountedPeripheral {
 
     @Override
     public boolean equals(IPeripheral other) {
-        return (other == this);
+        return this == other;
     }
 }

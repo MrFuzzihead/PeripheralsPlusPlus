@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 
+import com.austinv11.peripheralsplusplus.PeripheralsPlusPlus;
 import com.austinv11.peripheralsplusplus.cleverbot.AIChatRequest;
 import com.austinv11.peripheralsplusplus.reference.Config;
 import com.google.code.chatterbotapi.ChatterBot;
@@ -23,7 +24,6 @@ import dan200.computercraft.api.peripheral.IPeripheral;
 public class TileEntityAIChatBox extends MountedTileEntity {
 
     public static String publicName = "aiChatBox";
-    private String name = "tileEntityAIChatBox";
     private List<BotSessionLuaObject> sessions = new ArrayList<BotSessionLuaObject>();
     private ChatterBotFactory factory = new ChatterBotFactory();
     private List<IComputerAccess> computers = new ArrayList<IComputerAccess>();
@@ -32,18 +32,17 @@ public class TileEntityAIChatBox extends MountedTileEntity {
         super();
     }
 
-    public String getName() {
-        return name;
-    }
-
     @Override
     public String getType() {
         return publicName;
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "newSession", "getSession", "getAllSessions" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "newSession", "getSession", "getAllSessions" };
+        return METHODS;
     }
 
     @Override
@@ -146,7 +145,7 @@ public class TileEntityAIChatBox extends MountedTileEntity {
                 return new Object[] { luaSession };
 
             } catch (Exception e) {
-                e.printStackTrace();
+                PeripheralsPlusPlus.LOGGER.error("Unable to create a Cleverbot session: " + e);
                 throw new LuaException("ERROR creating session, make sure the server has internet access!");
             }
         }
@@ -267,8 +266,11 @@ public class TileEntityAIChatBox extends MountedTileEntity {
         // Try to convert a string variable to an UUID. If the string is invalid then return null.
         static UUID stringToUUID(String string) throws LuaException, InterruptedException {
             if (string == null) return null;
-
-            return UUID.fromString(string);
+            try {
+                return UUID.fromString(string);
+            } catch (IllegalArgumentException e) {
+                throw new LuaException("Bad uuid '" + string + "'");
+            }
         }
     }
 
@@ -290,8 +292,12 @@ public class TileEntityAIChatBox extends MountedTileEntity {
             this.source = source;
         }
 
+        /** Cached: ComputerCraft asks for the method list on every lookup. */
+        private static final String[] SESSION_METHODS = { "think", "thinkAsync", "getUUID", "remove" };
+
+        @Override
         public String[] getMethodNames() {
-            return new String[] { "think", "thinkAsync", "getUUID", "remove" };
+            return SESSION_METHODS;
         }
 
         public Object[] callMethod(ILuaContext context, int method, Object[] arguments)

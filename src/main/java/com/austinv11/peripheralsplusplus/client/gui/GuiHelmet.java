@@ -2,7 +2,9 @@ package com.austinv11.peripheralsplusplus.client.gui;
 
 import java.util.ArrayDeque;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.GuiButton;
@@ -28,7 +30,7 @@ import cpw.mods.fml.relauncher.SideOnly;
 @SideOnly(Side.CLIENT)
 public class GuiHelmet extends GuiScreen {
 
-    public static HashMap<UUID, ArrayDeque<HelmetCommand>> renderStack = new HashMap<UUID, ArrayDeque<HelmetCommand>>();
+    public static final Map<UUID, ArrayDeque<HelmetCommand>> renderStack = new ConcurrentHashMap<UUID, ArrayDeque<HelmetCommand>>();
     public HashMap<Integer, GuiTextField> textFields = new HashMap<Integer, GuiTextField>();
 
     @Override
@@ -40,8 +42,10 @@ public class GuiHelmet extends GuiScreen {
             if (NBTHelper.hasTag(Minecraft.getMinecraft().thePlayer.getCurrentArmor(3), "identifier")) {
                 UUID uuid = UUID.fromString(
                     NBTHelper.getString(Minecraft.getMinecraft().thePlayer.getCurrentArmor(3), "identifier"));
-                if (renderStack.containsKey(uuid)) {
-                    ArrayDeque<HelmetCommand> commands = new ArrayDeque<HelmetCommand>(renderStack.get(uuid));
+                // Read once: the packet handler on the netty thread can replace this entry concurrently.
+                ArrayDeque<HelmetCommand> queued = renderStack.get(uuid);
+                if (queued != null) {
+                    ArrayDeque<HelmetCommand> commands = new ArrayDeque<HelmetCommand>(queued);
                     while (!commands.isEmpty()) {
                         HelmetCommand command = commands.poll();
                         if (!(command instanceof AddTextFieldCommand) && !(command instanceof AddButtonCommand))
@@ -64,8 +68,10 @@ public class GuiHelmet extends GuiScreen {
             if (NBTHelper.hasTag(Minecraft.getMinecraft().thePlayer.getCurrentArmor(3), "identifier")) {
                 UUID uuid = UUID.fromString(
                     NBTHelper.getString(Minecraft.getMinecraft().thePlayer.getCurrentArmor(3), "identifier"));
-                if (renderStack.containsKey(uuid)) {
-                    ArrayDeque<HelmetCommand> commands = new ArrayDeque<HelmetCommand>(renderStack.get(uuid));
+                // Read once: the packet handler on the netty thread can replace this entry concurrently.
+                ArrayDeque<HelmetCommand> queued = renderStack.get(uuid);
+                if (queued != null) {
+                    ArrayDeque<HelmetCommand> commands = new ArrayDeque<HelmetCommand>(queued);
                     while (!commands.isEmpty()) {
                         HelmetCommand command = commands.poll();
                         if (command instanceof AddTextFieldCommand || command instanceof AddButtonCommand)

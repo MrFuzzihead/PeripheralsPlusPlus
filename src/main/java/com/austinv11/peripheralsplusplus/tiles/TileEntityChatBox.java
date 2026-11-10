@@ -1,6 +1,8 @@
 package com.austinv11.peripheralsplusplus.tiles;
 
 import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
@@ -12,8 +14,10 @@ import net.minecraft.util.Vec3;
 import net.minecraftforge.event.ServerChatEvent;
 import net.minecraftforge.event.entity.living.LivingDeathEvent;
 
+import com.austinv11.peripheralsplusplus.lua.LuaArgs;
 import com.austinv11.peripheralsplusplus.reference.Config;
 import com.austinv11.peripheralsplusplus.utils.ChatUtil;
+import com.austinv11.peripheralsplusplus.utils.RateLimiter;
 import com.austinv11.peripheralsplusplus.utils.Util;
 
 import cpw.mods.fml.common.eventhandler.EventPriority;
@@ -27,11 +31,9 @@ import dan200.computercraft.api.turtle.ITurtleAccess;
 public class TileEntityChatBox extends MountedTileEntity {
 
     public static String publicName = "chatBox";
-    private String name = "tileEntityChatBox";
     private HashMap<IComputerAccess, Boolean> computers = new HashMap<IComputerAccess, Boolean>();
-    private static final int TICKER_INTERVAL = 20;
-    private int ticker = 0;
-    private int subticker = 0;
+    /** Per-second message budget, shared by {@code say} and {@code tell}. */
+    private final RateLimiter rateLimiter = new RateLimiter();
     private ITurtleAccess turtle;
 
     public TileEntityChatBox() {
@@ -46,10 +48,6 @@ public class TileEntityChatBox extends MountedTileEntity {
         this.turtle = turtle;
     }
 
-    public String getName() {
-        return name;
-    }
-
     @Override
     public void readFromNBT(NBTTagCompound nbttagcompound) {
         super.readFromNBT(nbttagcompound);
@@ -62,8 +60,7 @@ public class TileEntityChatBox extends MountedTileEntity {
 
     @Override
     public void updateEntity() {
-        if (subticker > 0) subticker--;
-        if (subticker == 0 && ticker != 0) ticker = 0;
+        rateLimiter.tick();
     }
 
     public void updateEntity(boolean turtle) {
@@ -100,111 +97,78 @@ public class TileEntityChatBox extends MountedTileEntity {
         return publicName;
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "say", "tell" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "say", "tell" };
+        return METHODS;
     }
 
     @Override
-    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] arguments)
+    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] rawArguments)
         throws LuaException, InterruptedException {
-        // try {
-        if (Config.enableChatBox) {
-            if (method == 0) {
-                if (arguments.length < 1) throw new LuaException("Too few arguments");
-                if (!(arguments[0] instanceof String)) throw new LuaException("Bad argument #1 (expected string)");
-                if (arguments.length > 1 && !(arguments[1] instanceof Double))
-                    throw new LuaException("Bad argument #2 (expected number)");
-                if (arguments.length > 2 && !(arguments[2] instanceof Boolean))
-                    throw new LuaException("Bad argument #3 (expected boolean)");
-                if (arguments.length > 3) {
-                    if (!(arguments[3] instanceof String)) {
-                        throw new LuaException("Bad argument #4 (expected string)");
-                    }
-                }
-                if (ticker == Config.sayRate) {
-                    throw new LuaException("Please try again later, you are sending messages too often");
-                }
-                String message;
-                if (Config.logCoords) {
-                    message = ChatUtil.getCoordsPrefix(this) + arguments[0];
-                } else if (!Config.logCoords && arguments.length > 3) {
-                    message = "[" + arguments[3] + "] " + arguments[0];
-                } else {
-                    message = "[@] " + arguments[0];
-                }
-
-                double range = Config.sayRange;
-                if (Config.sayRange < 0) {
-                    range = Double.MAX_VALUE;
-                } else if (arguments.length > 1) {
-                    if ((Double) arguments[1] < 0) {
-                        if (Config.sayRange < 0) {
-                            range = Double.MAX_VALUE;
-                        }
-                    } else if ((Double) arguments[1] < Config.sayRange) {
-                        range = (Double) arguments[1];
-                    }
-                }
-
-                synchronized (this) {
-                    ChatUtil.sendMessage(
-                        this,
-                        message,
-                        range,
-                        (arguments.length > 2 && (Boolean) arguments[2] && Config.allowUnlimitedVertical));
-                    subticker = TICKER_INTERVAL;
-                    ticker++;
-                }
-                return new Object[] { true };
-            } else if (method == 1) {
-                if (arguments.length < 2) throw new LuaException("Too few arguments");
-                if (!(arguments[0] instanceof String)) throw new LuaException("Bad argument #1 (expected string)");
-                if (!(arguments[1] instanceof String)) throw new LuaException("Bad argument #2 (expected string)");
-                else if (arguments.length > 2 && !(arguments[2] instanceof Double))
-                    throw new LuaException("Bad argument #3 (expected number)");
-                else if (arguments.length > 3 && !(arguments[3] instanceof Boolean))
-                    throw new LuaException("Bad argument #4 (expected boolean)");
-                if (arguments.length > 4) {
-                    if (Config.logCoords) {
-                        throw new LuaException("Coordinate logging is enabled, disable this to enable naming");
-                    } else if (!(arguments[4] instanceof String)) {
-                        throw new LuaException("Bad argument #5 (expected string)");
-                    }
-                }
-                if (ticker == Config.sayRate) {
-                    throw new LuaException("Please try again later, you are sending messages too often");
-                }
-                String message;
-                if (Config.logCoords) {
-                    message = ChatUtil.getCoordsPrefix(this) + arguments[1];
-                } else if (!Config.logCoords && arguments.length > 4) {
-                    message = "[" + arguments[4] + "] " + arguments[1];
-                } else {
-                    message = "[@] " + arguments[1];
-                }
-                double range = Config.sayRange < 0 ? Double.MAX_VALUE : Config.sayRange;
-                if (arguments.length > 2) range = (Double) arguments[2];
-
-                synchronized (this) {
-                    subticker = TICKER_INTERVAL;
-                    ticker++;
-                    ChatUtil.sendMessage(
-                        (String) arguments[0],
-                        this,
-                        message,
-                        range,
-                        (arguments.length > 3 && (Boolean) arguments[3] && Config.allowUnlimitedVertical));
-                }
-                return new Object[] { true };
-            }
-        } else {
-            throw new LuaException("Chat boxes have been disabled");
+        if (!Config.enableChatBox) throw new LuaException("Chat boxes have been disabled");
+        LuaArgs arguments = LuaArgs.of(rawArguments);
+        switch (method) {
+            case 0:
+                return new Object[] { say(arguments) };
+            case 1:
+                return new Object[] { tell(arguments) };
+            default:
+                return new Object[0];
         }
-        // } catch (Exception e) {
-        // e.printStackTrace();
-        // }
-        return new Object[0];
+    }
+
+    /** {@code say(text, [range], [unlimitedY], [label])} */
+    private boolean say(LuaArgs arguments) throws LuaException {
+        String text = arguments.atLeast(1)
+            .string(0);
+        double requested = arguments.number(1, Config.sayRange);
+        boolean unlimitedY = arguments.bool(2, false) && Config.allowUnlimitedVertical;
+        String label = arguments.string(3, null);
+        requireBelowRateLimit();
+        ChatUtil.sendMessage(this, prefix(text, label), ChatUtil.clampRange(requested, Config.sayRange), unlimitedY);
+        return true;
+    }
+
+    /** {@code tell(player, text, [range], [unlimitedY], [label])} */
+    private boolean tell(LuaArgs arguments) throws LuaException {
+        arguments.atLeast(2);
+        String target = arguments.string(0);
+        String text = arguments.string(1);
+        double requested = arguments.number(2, Config.sayRange);
+        boolean unlimitedY = arguments.bool(3, false) && Config.allowUnlimitedVertical;
+        String label = arguments.string(4, null);
+        if (label != null && Config.logCoords)
+            throw new LuaException("Coordinate logging is enabled, disable this to enable naming");
+        requireBelowRateLimit();
+        // This used to take the raw argument, so a Lua program could address the whole dimension regardless of
+        // Config.sayRange (CODE_REVIEW.md section 5.8).
+        return ChatUtil.sendMessage(
+            target,
+            this,
+            prefix(text, label),
+            ChatUtil.clampRange(requested, Config.sayRange),
+            unlimitedY);
+    }
+
+    /**
+     * @param text  the message body
+     * @param label the optional "[label]" prefix, ignored when coordinate logging is on
+     * @return the message to send
+     */
+    private String prefix(String text, String label) {
+        return ChatUtil
+            .formatMessage(text, label, Config.logCoords, Config.logCoords ? ChatUtil.getCoordsPrefix(this) : null);
+    }
+
+    /**
+     * @throws LuaException when {@link Config#sayRate} messages have already been sent this second
+     */
+    private void requireBelowRateLimit() throws LuaException {
+        if (!rateLimiter.tryAcquire(Config.sayRate))
+            throw new LuaException("Please try again later, you are sending messages too often");
     }
 
     @Override
@@ -223,12 +187,12 @@ public class TileEntityChatBox extends MountedTileEntity {
 
     @Override
     public boolean equals(IPeripheral other) {
-        return (other == this);
+        return this == other;
     }
 
     public static class ChatListener {
 
-        private static HashMap<TileEntityChatBox, Boolean> chatBoxMap = new HashMap<TileEntityChatBox, Boolean>();
+        private static final Map<TileEntityChatBox, Boolean> chatBoxMap = new ConcurrentHashMap<TileEntityChatBox, Boolean>();
 
         @SubscribeEvent(priority = EventPriority.LOWEST)
         public void onChat(ServerChatEvent event) {
@@ -239,10 +203,12 @@ public class TileEntityChatBox extends MountedTileEntity {
                         && event.message.startsWith(commandPrefix)) {
                         event.setCanceled(true);
 
+                        // Strip the prefix once, not every occurrence in the message (CODE_REVIEW.md section 5.9).
+                        String command = event.message.substring(commandPrefix.length());
                         for (TileEntityChatBox box : chatBoxMap.keySet()) {
                             if (Config.readRange < 0 || Vec3.createVectorHelper(box.xCoord, box.yCoord, box.zCoord)
                                 .distanceTo(event.player.getPosition(1.0f)) <= Config.readRange)
-                                box.onCommand(event.player, event.message.replace(commandPrefix, ""));
+                                box.onCommand(event.player, command);
                         }
                     } else {
                         for (TileEntityChatBox box : chatBoxMap.keySet()) {

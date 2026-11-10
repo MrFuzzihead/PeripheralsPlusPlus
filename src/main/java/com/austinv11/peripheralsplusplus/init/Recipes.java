@@ -55,34 +55,36 @@ public class Recipes {
                 new ItemStack(Items.ender_eye),
                 'd',
                 "gemDiamond"));
-        if (Config.enableRFCharger) if (Loader.isModLoaded("ThermalExpansion")) GameRegistry.addRecipe(
-            new ShapedOreRecipe(
-                new ItemStack(ModBlocks.rfCharger),
-                "rlr",
-                "lcl",
-                "rer",
-                'r',
-                "dustRedstone",
-                'l',
-                "ingotLead",
-                'c',
-                new ItemStack(GameRegistry.findItem("ThermalExpansion", "capacitor"), 1, 2),
-                'e',
-                new ItemStack(GameRegistry.findItem("ThermalExpansion", "material"), 1, 3)));
-        else if (Loader.isModLoaded("BuildCraft|Core")) GameRegistry.addRecipe(
-            new ShapedOreRecipe(
-                new ItemStack(ModBlocks.rfCharger),
-                "rlr",
-                "lcl",
-                "rer",
-                'r',
-                "dustRedstone",
-                'l',
-                "gearIron",
-                'c',
-                "gearGold",
-                'e',
-                new ItemStack(GameRegistry.findItem("BuildCraft|Transport", "item.buildcraftPipe.pipepowergold"))));
+        if (Config.enableRFCharger && ModBlocks.rfCharger != null && Loader.isModLoaded(ModIds.ThermalExpansion))
+            GameRegistry.addRecipe(
+                new ShapedOreRecipe(
+                    new ItemStack(ModBlocks.rfCharger),
+                    "rlr",
+                    "lcl",
+                    "rer",
+                    'r',
+                    "dustRedstone",
+                    'l',
+                    "ingotLead",
+                    'c',
+                    new ItemStack(GameRegistry.findItem("ThermalExpansion", "capacitor"), 1, 2),
+                    'e',
+                    new ItemStack(GameRegistry.findItem("ThermalExpansion", "material"), 1, 3)));
+        else if (Config.enableRFCharger && ModBlocks.rfCharger != null && Loader.isModLoaded(ModIds.BuildCraft_Core))
+            GameRegistry.addRecipe(
+                new ShapedOreRecipe(
+                    new ItemStack(ModBlocks.rfCharger),
+                    "rlr",
+                    "lcl",
+                    "rer",
+                    'r',
+                    "dustRedstone",
+                    'l',
+                    "gearIron",
+                    'c',
+                    "gearGold",
+                    'e',
+                    new ItemStack(GameRegistry.findItem("BuildCraft|Transport", "item.buildcraftPipe.pipepowergold"))));
         if (Config.enableOreDictionary) GameRegistry.addRecipe(
             new ShapedOreRecipe(
                 new ItemStack(ModBlocks.oreDictionary),
@@ -219,11 +221,12 @@ public class Recipes {
                 "after:minecraft:shapeless");
             GameRegistry.addRecipe(new ContainerRecipe());
         }
-        if (Config.enableMEBridge && Loader.isModLoaded("appliedenergistics2")) GameRegistry.addRecipe(
-            new ShapelessOreRecipe(
-                new ItemStack(ModBlocks.meBridge),
-                new ItemStack(GameRegistry.findItem("appliedenergistics2", "tile.BlockInterface")),
-                new ItemStack(GameRegistry.findItem("ComputerCraft", "CC-Cable"), 1, 1)));
+        if (Config.enableMEBridge && ModBlocks.meBridge != null && Loader.isModLoaded(ModIds.AppliedEnergistics2))
+            GameRegistry.addRecipe(
+                new ShapelessOreRecipe(
+                    new ItemStack(ModBlocks.meBridge),
+                    new ItemStack(GameRegistry.findItem("appliedenergistics2", "tile.BlockInterface")),
+                    new ItemStack(GameRegistry.findItem("ComputerCraft", "CC-Cable"), 1, 1)));
         if (Config.enableTankTurtle) GameRegistry.addRecipe(
             new ShapedOreRecipe(
                 new ItemStack(ModItems.tank),
@@ -310,7 +313,6 @@ public class Recipes {
                 Blocks.piston,
                 'e',
                 Items.ender_eye));
-        GameRegistry.addShapelessRecipe(new ItemStack(ModItems.permCard), new ItemStack(ModItems.permCard));
         if (Config.enableResupplyStation) {
             GameRegistry.addRecipe(
                 new ShapedOreRecipe(

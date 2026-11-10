@@ -26,26 +26,25 @@ public class TileEntityPeripheralContainer extends MountedNetworkedTileEntity {
     private List<Block> blocksContained = new ArrayList<Block>();
     private List<IPeripheral> peripheralsContained = new ArrayList<IPeripheral>();
     public static String publicName = "peripheralContainer";
-    private String name = "tileEntityPeripheralContainer";
     private boolean needsUpdate = false;
 
     public TileEntityPeripheralContainer() {
         super();
     }
 
-    public String getName() {
-        return name;
-    }
-
     @Override
     public void readFromNBT(NBTTagCompound nbttagcompound) {
         super.readFromNBT(nbttagcompound);
+        // Reloading must not append to the previous contents (CODE_REVIEW.md section 4.9).
+        blocksContained.clear();
+        peripheralsContained.clear();
         int[] ids = nbttagcompound.getIntArray("ids");
         for (int id : ids) addPeripheral(Block.getBlockById(id));
         for (IPeripheral p : peripheralsContained) {
             NBTTagCompound tag = nbttagcompound.getCompoundTag(p.getType());
             ((TileEntity) p).readFromNBT(tag);
         }
+        needsUpdate = worldObj != null && !peripheralsContained.isEmpty();
     }
 
     @Override
@@ -66,9 +65,12 @@ public class TileEntityPeripheralContainer extends MountedNetworkedTileEntity {
         return publicName;
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "getContainedPeripherals", "wrapPeripheral" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "getContainedPeripherals", "wrapPeripheral" };
+        return METHODS;
     }
 
     @Override
@@ -85,42 +87,57 @@ public class TileEntityPeripheralContainer extends MountedNetworkedTileEntity {
         } else if (method == 1) {
             if (arguments.length < 1) throw new LuaException("Too few arguments");
             if (!(arguments[0] instanceof String)) throw new LuaException("Bad argument #1 (expected string)");
-            return new Object[] { new LuaObjectPeripheralWrap(getPeripheralByName((String) arguments[0]), computer) };
+            IPeripheral wrapped = getPeripheralByName((String) arguments[0]);
+            if (wrapped == null) throw new LuaException("No contained peripheral named " + arguments[0]);
+            return new Object[] { new LuaObjectPeripheralWrap(wrapped, computer) };
         }
         return new Object[0];
     }
 
     @Override
     public boolean equals(IPeripheral other) {
-        return (this == other);
+        return this == other;
     }
 
     @Override
     public void updateEntity() {
-        for (IPeripheral te : peripheralsContained) {
-            ((TileEntity) te).updateEntity();
-            if (needsUpdate) {
-                worldObj.markBlockForUpdate(xCoord, yCoord, zCoord);
-                ((TileEntity) te).setWorldObj(worldObj);
-                ((TileEntity) te).xCoord = xCoord;
-                ((TileEntity) te).yCoord = yCoord;
-                ((TileEntity) te).zCoord = zCoord;
+        if (needsUpdate && worldObj != null) {
+            // `needsUpdate` was never cleared, so this ran markBlockForUpdate every tick forever (section 4.9).
+            worldObj.markBlockForUpdate(xCoord, yCoord, zCoord);
+            for (IPeripheral peripheral : peripheralsContained) {
+                TileEntity tile = (TileEntity) peripheral;
+                tile.setWorldObj(worldObj);
+                tile.xCoord = xCoord;
+                tile.yCoord = yCoord;
+                tile.zCoord = zCoord;
             }
+            needsUpdate = false;
         }
+        for (IPeripheral peripheral : peripheralsContained) ((TileEntity) peripheral).updateEntity();
     }
 
-    public void addPeripheral(Block peripheral) {
+    /**
+     * Adds a peripheral block to this container.
+     *
+     * @param peripheral the block, or {@code null} when the id in the item's NBT no longer exists
+     * @return true when a peripheral was added
+     */
+    public boolean addPeripheral(Block peripheral) {
+        if (peripheral == null) return false;
+        if (blocksContained.size() >= Config.maxNumberOfPeripherals) return false;
+        TileEntity tile = peripheral.createTileEntity(worldObj, 0);
+        if (!(tile instanceof IPeripheral)) return false;
         blocksContained.add(peripheral);
-        TileEntity peripheral_ = peripheral.createTileEntity(worldObj, 0);
-        peripheralsContained.add((IPeripheral) peripheral_);
+        peripheralsContained.add((IPeripheral) tile);
         markDirty();
         if (worldObj != null) {
             worldObj.markBlockForUpdate(xCoord, yCoord, zCoord);
-            peripheral_.setWorldObj(worldObj);
-            peripheral_.xCoord = xCoord;
-            peripheral_.yCoord = yCoord;
-            peripheral_.zCoord = zCoord;
+            tile.setWorldObj(worldObj);
+            tile.xCoord = xCoord;
+            tile.yCoord = yCoord;
+            tile.zCoord = zCoord;
         } else needsUpdate = true;
+        return true;
     }
 
     public List<Block> getBlocksContained() {

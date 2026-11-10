@@ -1,0 +1,139 @@
+name: Smoke test
+
+# Boots a real game so the mod is exercised against Forge + ComputerCraft + CollectiveFramework at least once per
+# change. The reusable GTNH build workflow runs with `client-only: true` (the plain Java 8 `runServer` cannot load
+# ComputerCraft 3.3.x, which requires lwjgl3ify), so server coverage lives here instead.
+#
+# `-PsmokeTest` makes the game print PERIPHERALSPLUSPLUS_SMOKE_TEST_OK and exit with status 0 (see SmokeTestHook).
+# `./gradlew gameTestServer` additionally runs the assertions in src/gameTest/java.
+
+on:
+  pull_request:
+    branches: [ master, main ]
+  push:
+    branches: [ master, main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  server-smoke:
+    name: Dedicated server boot
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Accept the Minecraft EULA
+        run: mkdir -p run/server && echo "eula=true" > run/server/eula.txt
+
+      - name: Boot the server
+        run: ./gradlew runServer25 -PsmokeTest --stacktrace
+
+      - name: Check the marker
+        # Grep every log: FML also writes fml-junk-earlystartup.log, which sorts before latest.log.
+        run: |
+          ls -l run/server/logs/ || true
+          test -n "$(ls run/server/logs/*.log 2>/dev/null)" || { echo "no server log was written"; exit 1; }
+          grep -h "PERIPHERALSPLUSPLUS_SMOKE_TEST_OK" run/server/logs/*.log
+          grep -hq "PERIPHERALSPLUSPLUS_SMOKE_TEST_OK" run/server/logs/*.log
+          # Not "Done (": the smoke hook exits at FMLLoadCompleteEvent, before the server prints it. What matters
+          # is that the mod itself finished initialising.
+          grep -hq "All peripherals and turtle upgrades registered!" run/server/logs/*.log
+
+      - name: Upload the log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: server-smoke-log
+          path: run/server/logs/
+          if-no-files-found: warn
+
+  game-test:
+    name: In-game assertions
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Accept the Minecraft EULA
+        run: mkdir -p run/server && echo "eula=true" > run/server/eula.txt
+
+      - name: Run the game tests
+        run: ./gradlew gameTestServer --stacktrace
+
+      - name: Check the marker
+        # The mod prints PPP_GAMETEST_OK only after every assertion has passed and the server has to shut down
+        # cleanly; a crash mid-run therefore fails here instead of silently passing.
+        # Grep every log: FML also writes fml-junk-earlystartup.log, which sorts before latest.log.
+        run: |
+          ls -l run/server/logs/ || true
+          test -n "$(ls run/server/logs/*.log 2>/dev/null)" || { echo "no server log was written"; exit 1; }
+          grep -hE "PPP-GAMETEST\] [0-9]+/[0-9]+ checks passed" run/server/logs/*.log || true
+          grep -hq "PPP_GAMETEST_OK" run/server/logs/*.log
+          ! grep -hq "PPP_GAMETEST_FAILED" run/server/logs/*.log
+
+      - name: Upload the log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: game-test-log
+          path: run/server/logs/
+          if-no-files-found: warn
+
+  client-smoke:
+    name: Client boot (Xvfb)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    # Non-blocking: a client boot depends on graphics drivers the runner image does not guarantee.
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install Xvfb and Mesa
+        # `libgl1-mesa-glx` was a transitional package and is gone from Ubuntu 24.04, which is what the runner image
+        # is: apt fails with "has no installation candidate" and the step never runs the client.
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libgl1 libglx-mesa0 libgl1-mesa-dri libglu1-mesa
+
+      - name: Boot the client
+        env:
+          LIBGL_ALWAYS_SOFTWARE: '1'
+        run: xvfb-run -a ./gradlew runClient25 -PsmokeTest --stacktrace
+
+      - name: Upload the log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: client-smoke-log
+          path: run/client/logs/
+          if-no-files-found: warn

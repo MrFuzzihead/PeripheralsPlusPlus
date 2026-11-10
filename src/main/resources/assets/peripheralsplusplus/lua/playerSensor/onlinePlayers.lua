@@ -1,10 +1,11 @@
 --[[
 Created by Fxz_y
 ]]
-p = peripheral.find("playerSensor") --Wrapping the peripheral
-if p then
-  data = p.getAllPlayers() --Getting all the players currently online
-  for k,v in pairs(data) do
-    print(tostring(k)..": "..tostring(v))
-  end
+local p = peripheral.find("playerSensor")
+if not p then
+  print("No player sensor attached.")
+  return
+end
+for key, name in pairs(p.getAllPlayers()) do
+  print(tostring(key) .. ": " .. tostring(name))
 end

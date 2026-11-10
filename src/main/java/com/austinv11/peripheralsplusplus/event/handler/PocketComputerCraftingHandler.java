@@ -10,6 +10,7 @@ import net.minecraftforge.common.util.Constants;
 
 import com.austinv11.collectiveframework.minecraft.utils.NBTHelper;
 import com.austinv11.peripheralsplusplus.hooks.ComputerCraftRegistry;
+import com.austinv11.peripheralsplusplus.hooks.IPocketComputerUpgrade;
 import com.austinv11.peripheralsplusplus.reference.Config;
 import com.austinv11.peripheralsplusplus.reference.Reference;
 
@@ -19,9 +20,8 @@ import dan200.computercraft.shared.pocket.items.ItemPocketComputer;
 public class PocketComputerCraftingHandler implements IRecipe {
 
     private int findUpgradeItem(ItemStack stack) {
-        for (ItemStack stack1 : ComputerCraftRegistry.craftingRecipes.keySet())
-            if (stack.isItemEqual(stack1)) return ComputerCraftRegistry.craftingRecipes.get(stack1);
-        return -1;
+        IPocketComputerUpgrade upgrade = ComputerCraftRegistry.findUpgradeFor(stack);
+        return upgrade == null ? -1 : upgrade.getUpgradeID();
     }
 
     @Override
@@ -47,8 +47,8 @@ public class PocketComputerCraftingHandler implements IRecipe {
             if (NBTHelper.getInt(computerStack, "upgrade") == Reference.PERIPHERAL_CONTAINER) {
                 if (!NBTHelper.hasTag(computerStack, "upgrades")) return true;
                 NBTTagList list = NBTHelper.getList(computerStack, "upgrades", Constants.NBT.TAG_FLOAT);
-                if (list.tagCount() > Config.maxNumberOfPeripherals) return false;
-                return true;
+                // The upgrade being added has to fit too; the old check allowed max + 1 peripherals.
+                return list.tagCount() < Config.maxNumberOfPeripherals;
             }
             return false;
         }
@@ -59,17 +59,19 @@ public class PocketComputerCraftingHandler implements IRecipe {
     public ItemStack getCraftingResult(InventoryCrafting inventory) {
         int computerSlot = -1;
         int upgradeSlot = -1;
-        int upgrade = 1;
+        int upgrade = -1;
         for (int i = 0; i < inventory.getSizeInventory(); i++) {
             if (inventory.getStackInSlot(i) != null) {
                 if (inventory.getStackInSlot(i)
                     .getItem() instanceof ItemPocketComputer) {
                     if (computerSlot != -1) return null;
                     computerSlot = i;
-                } else if ((upgrade = findUpgradeItem(inventory.getStackInSlot(i))) != -1) {
-                    if (upgradeSlot != -1) return null;
+                } else {
+                    int found = findUpgradeItem(inventory.getStackInSlot(i));
+                    if (found == -1 || upgradeSlot != -1) return null;
                     upgradeSlot = i;
-                } else return null;
+                    upgrade = found;
+                }
             }
         }
         if (computerSlot == -1 || upgradeSlot == -1) return null;
@@ -80,7 +82,7 @@ public class PocketComputerCraftingHandler implements IRecipe {
                 if (!NBTHelper.hasTag(computerStack, "upgrades"))
                     NBTHelper.setList(computerStack, "upgrades", new NBTTagList());
                 NBTTagList list = NBTHelper.getList(computerStack, "upgrades", Constants.NBT.TAG_FLOAT);
-                if (list.tagCount() > Config.maxNumberOfPeripherals) return null;
+                if (list.tagCount() >= Config.maxNumberOfPeripherals) return null;
                 list.appendTag(new NBTTagFloat(upgrade));
             } else return null;
         } else NBTHelper.setInteger(computerStack, "upgrade", upgrade);

@@ -5,9 +5,9 @@ import java.io.InputStream;
 import java.util.HashMap;
 import javazoom.jl.decoder.JavaLayerException;
 
-import com.gtranslate.Audio;
-import com.gtranslate.Language;
-import com.gtranslate.Translator;
+import com.austinv11.peripheralsplusplus.thirdparty.gtranslate.Audio;
+import com.austinv11.peripheralsplusplus.thirdparty.gtranslate.Language;
+import com.austinv11.peripheralsplusplus.thirdparty.gtranslate.Translator;
 
 public class TranslateUtils {
 
@@ -42,13 +42,6 @@ public class TranslateUtils {
     public static boolean isPrefix(String lang) {
         return lang.length() == 2 || lang.toLowerCase()
             .contains("zh-");
-    }
-
-    public static String detectLangName(String text) {
-        return Language.getInstance()
-            .getNameLanguage(
-                Translator.getInstance()
-                    .detect(text));
     }
 
     public static String detectLangPrefix(String text) {

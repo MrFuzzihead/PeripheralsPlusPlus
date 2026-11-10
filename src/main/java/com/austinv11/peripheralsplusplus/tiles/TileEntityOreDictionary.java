@@ -7,6 +7,8 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.oredict.OreDictionary;
 
+import com.austinv11.peripheralsplusplus.PeripheralsPlusPlus;
+import com.austinv11.peripheralsplusplus.lua.LuaArgs;
 import com.austinv11.peripheralsplusplus.reference.Config;
 import com.austinv11.peripheralsplusplus.utils.ChatUtil;
 import com.austinv11.peripheralsplusplus.utils.Util;
@@ -20,7 +22,6 @@ import dan200.computercraft.api.turtle.ITurtleAccess;
 public class TileEntityOreDictionary extends MountedTileEntity {
 
     public static String publicName = "oreDictionary";
-    private String name = "tileEntityOreDictionary";
     private HashMap<IComputerAccess, Boolean> computers = new HashMap<IComputerAccess, Boolean>();
     private ITurtleAccess turtle = null;
 
@@ -31,10 +32,6 @@ public class TileEntityOreDictionary extends MountedTileEntity {
     public TileEntityOreDictionary(ITurtleAccess turtle) {
         super();
         this.turtle = turtle;
-    }
-
-    public String getName() {
-        return name;
     }
 
     @Override
@@ -66,29 +63,26 @@ public class TileEntityOreDictionary extends MountedTileEntity {
     }
 
     @Override
-    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] arguments)
+    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] rawArguments)
         throws LuaException, InterruptedException {
         if (!Config.enableOreDictionary) throw new LuaException("Ore Dictionaries have been disabled");
+        LuaArgs arguments = LuaArgs.of(rawArguments);
+        if (!isTurtle()) throw new LuaException("Ore Dictionary blocks have no Lua API; use the turtle upgrade");
         try {
             if (method == 0) {
                 ItemStack slot = turtle.getInventory()
                     .getStackInSlot(turtle.getSelectedSlot());
                 return new Object[] { Util.getEntries(slot) };
             } else if (method == 1) {
-                if (!(arguments.length > 0) || !(arguments[0] instanceof Double))
-                    throw new LuaException("Bad argument #1 (expected number)");
-                if (!(arguments.length > 1) || !(arguments[1] instanceof Double))
-                    throw new LuaException("Bad argument #2 (expected number)");
-                double arg1 = (Double) arguments[0];
-                double arg2 = (Double) arguments[1];
-                arg1--;
-                arg2--;
+                // 1-based, like every other Lua slot in this mod.
+                int arg1 = arguments.integer(0) - 1;
+                int arg2 = arguments.integer(1) - 1;
                 ItemStack slot = turtle.getInventory()
                     .getStackInSlot(turtle.getSelectedSlot());
                 ItemStack stack1 = turtle.getInventory()
-                    .getStackInSlot((int) arg1);
+                    .getStackInSlot(arg1);
                 ItemStack stack2 = turtle.getInventory()
-                    .getStackInSlot((int) arg2);
+                    .getStackInSlot(arg2);
                 if (stack1 == null || stack2 == null)
                     throw new LuaException("One or more selected slots have nil items");
                 if (!Util.compare(stack1, stack2)) return new Object[] { false };
@@ -114,17 +108,17 @@ public class TileEntityOreDictionary extends MountedTileEntity {
                         .setInventorySlotContents(turtle.getSelectedSlot(), slot.copy());
                     if (stack1.stackSize <= 0) {
                         turtle.getInventory()
-                            .setInventorySlotContents((int) arg1, null);
+                            .setInventorySlotContents(arg1, null);
                     } else {
                         turtle.getInventory()
-                            .setInventorySlotContents((int) arg1, stack1.copy());
+                            .setInventorySlotContents(arg1, stack1.copy());
                     }
                     if (stack2.stackSize <= 0) {
                         turtle.getInventory()
-                            .setInventorySlotContents((int) arg2, null);
+                            .setInventorySlotContents(arg2, null);
                     } else {
                         turtle.getInventory()
-                            .setInventorySlotContents((int) arg2, stack2.copy());
+                            .setInventorySlotContents(arg2, stack2.copy());
                     }
                 } else {
                     ItemStack newStack = new ItemStack(stack1.getItem());
@@ -133,17 +127,17 @@ public class TileEntityOreDictionary extends MountedTileEntity {
                         .setInventorySlotContents(turtle.getSelectedSlot(), newStack.copy());
                     if (stack1.stackSize <= 0) {
                         turtle.getInventory()
-                            .setInventorySlotContents((int) arg1, null);
+                            .setInventorySlotContents(arg1, null);
                     } else {
                         turtle.getInventory()
-                            .setInventorySlotContents((int) arg1, stack1.copy());
+                            .setInventorySlotContents(arg1, stack1.copy());
                     }
                     if (stack2.stackSize <= 0) {
                         turtle.getInventory()
-                            .setInventorySlotContents((int) arg2, null);
+                            .setInventorySlotContents(arg2, null);
                     } else {
                         turtle.getInventory()
-                            .setInventorySlotContents((int) arg2, stack2.copy());
+                            .setInventorySlotContents(arg2, stack2.copy());
                     }
                 }
                 return new Object[] { true };
@@ -158,22 +152,20 @@ public class TileEntityOreDictionary extends MountedTileEntity {
                     .setInventorySlotContents(turtle.getSelectedSlot(), newStack);
                 return new Object[] { true };
             } else if (method == 3) {
-                if (!(arguments.length > 0) || !(arguments[0] instanceof Double))
-                    throw new LuaException("Bad argument #1 (expected number)");
-                if (!(arguments.length > 1) || !(arguments[1] instanceof Double))
-                    throw new LuaException("Bad argument #2 (expected number)");
-                double arg1 = (Double) arguments[0];
-                double arg2 = (Double) arguments[1];
-                arg1--;
-                arg2--;
+                int arg1 = arguments.integer(0) - 1;
+                int arg2 = arguments.integer(1) - 1;
                 return new Object[] { Util.compare(
                     turtle.getInventory()
-                        .getStackInSlot((int) arg1),
+                        .getStackInSlot(arg1),
                     turtle.getInventory()
-                        .getStackInSlot((int) arg2)) };
+                        .getStackInSlot(arg2)) };
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (LuaException e) {
+            // A LuaException is the program's error and must reach Lua, not be converted into nil.
+            throw e;
+        } catch (RuntimeException e) {
+            PeripheralsPlusPlus.LOGGER.error("Ore Dictionary operation failed: " + e);
+            throw new LuaException("Ore Dictionary operation failed: " + e.getMessage());
         }
         return new Object[0];
     }
@@ -192,7 +184,7 @@ public class TileEntityOreDictionary extends MountedTileEntity {
 
     @Override
     public boolean equals(IPeripheral other) {
-        return (other == this);
+        return this == other;
     }
 
     private ItemStack transmute(ItemStack item) {

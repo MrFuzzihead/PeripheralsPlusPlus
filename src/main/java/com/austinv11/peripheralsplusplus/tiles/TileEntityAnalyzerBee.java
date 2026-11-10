@@ -20,11 +20,6 @@ public class TileEntityAnalyzerBee extends TileEntityAnalyzer {
     }
 
     @Override
-    public String getName() {
-        return "tileEntityBeeAnalyzer";
-    }
-
-    @Override
     public String getPublicName() {
         return publicName;
     }

@@ -6,9 +6,7 @@ import java.util.Iterator;
 import java.util.List;
 
 import net.minecraft.block.Block;
-import net.minecraft.block.BlockContainer;
 import net.minecraft.inventory.IInventory;
-import net.minecraft.inventory.ISidedInventory;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
 import net.minecraft.item.ItemStack;
@@ -29,7 +27,9 @@ import net.minecraftforge.common.util.ForgeDirection;
 
 import com.austinv11.collectiveframework.minecraft.utils.Location;
 import com.austinv11.collectiveframework.minecraft.utils.WorldUtils;
+import com.austinv11.peripheralsplusplus.lua.LuaArgs;
 import com.austinv11.peripheralsplusplus.reference.Config;
+import com.austinv11.peripheralsplusplus.utils.InventoryUtils;
 import com.austinv11.peripheralsplusplus.utils.Util;
 
 import dan200.computercraft.api.lua.ILuaContext;
@@ -40,7 +40,6 @@ import dan200.computercraft.api.peripheral.IPeripheral;
 public class TileEntityInteractiveSorter extends MountedTileEntityInventory {
 
     public static String publicName = "interactiveSorter";
-    private String name = "tileEntityInteractiveSorter";
     private List<IComputerAccess> computers = new ArrayList<IComputerAccess>();
 
     public TileEntityInteractiveSorter() {
@@ -52,153 +51,83 @@ public class TileEntityInteractiveSorter extends MountedTileEntityInventory {
         return 1;
     }
 
-    public String getName() {
-        return name;
-    }
-
     @Override
     public String getType() {
         return publicName;
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "analyze", "push", "pull", "isInventoryPresent" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "analyze", "push", "pull", "isInventoryPresent" };
+        return METHODS;
     }
 
     @Override
-    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] arguments)
+    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] rawArguments)
         throws LuaException, InterruptedException {
         if (!Config.enableInteractiveSorter) throw new LuaException("Interactive Sorters have been disabled");
+        LuaArgs arguments = LuaArgs.of(rawArguments);
         if (method == 0) {
             return new Object[] { getItemInfo(getStackInSlot(0)) };
 
         } else if (method == 1) {
             if (getStackInSlot(0) == null) return new Object[] { false };
-            ForgeDirection dir;
-            if (arguments.length < 1) throw new LuaException("Too few arguments");
-            if (!(arguments[0] instanceof String) && !(arguments[0] instanceof Double))
-                throw new LuaException("Bad argument #1 (expected string or number)");
-            if (arguments.length > 1 && !(arguments[1] instanceof Double))
-                throw new LuaException("Bad argument #2 (expected number)");
-            if (arguments[0] instanceof String) dir = ForgeDirection.valueOf(((String) arguments[0]).toUpperCase());
-            else dir = ForgeDirection.getOrientation((int) (double) (Double) arguments[0]);
-            int amount = arguments.length > 1
-                ? MathHelper.clamp_int((int) (double) (Double) arguments[1], 0, getStackInSlot(0).stackSize)
-                : getStackInSlot(0).stackSize;
-            if (!isInventoryOnSide(dir)) {
+            ForgeDirection dir = arguments.direction(0);
+            int amount = arguments.integer(1, getStackInSlot(0).stackSize);
+            amount = MathHelper.clamp_int(amount, 0, getStackInSlot(0).stackSize);
+            IInventory inventory = getInventoryForSide(dir);
+            if (inventory == null) {
+                ItemStack dropped = decrStackSize(0, amount);
+                if (dropped == null) return new Object[] { false };
                 WorldUtils.spawnItemInWorld(
                     new Location(xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ, worldObj),
-                    getStackInSlot(0).splitStack(amount));
-                markDirty();
+                    dropped);
                 return new Object[] { true };
             }
-            IInventory inventory = getInventoryForSide(dir);
-            int oldSize = getStackInSlot(0).stackSize;
-            int[] slots = inventory instanceof ISidedInventory
-                ? ((ISidedInventory) inventory).getAccessibleSlotsFromSide(dir.getOpposite().flag)
-                : getDefaultSlots(inventory);
-            int currentSlot = 0;
-            while (getStackInSlot(0) != null && getStackInSlot(0).stackSize > oldSize - amount
-                && currentSlot < slots.length) {
-                if (inventory.getStackInSlot(slots[currentSlot]) == null) {
-                    inventory.setInventorySlotContents(slots[currentSlot], getStackInSlot(0));
-                    setInventorySlotContents(0, null);
-                } else {
-                    if (!inventory.getStackInSlot(slots[currentSlot])
-                        .isItemEqual(getStackInSlot(0))) {
-                        currentSlot++;
-                        continue;
-                    }
-                    int transferred = MathHelper.clamp_int(
-                        inventory.getStackInSlot(slots[currentSlot]).stackSize + amount,
-                        getStackInSlot(0).stackSize,
-                        getStackInSlot(0).getMaxStackSize());
-
-                    getStackInSlot(0).stackSize -= transferred;
-                    inventory.getStackInSlot(0).stackSize += transferred;
-                }
-                inventory.markDirty();
-                markDirty();
-                currentSlot++;
-            }
-            return new Object[] { getStackInSlot(0) == null || getStackInSlot(0).stackSize != oldSize };
+            int moved = InventoryUtils
+                .move(this, 0, inventory, InventoryUtils.slotsFor(inventory, dir.getOpposite()), amount);
+            markDirty();
+            return new Object[] { moved > 0 };
 
         } else if (method == 2) {
-            ForgeDirection dir;
-            if (arguments.length < 1) throw new LuaException("Too few arguments");
-            if (!(arguments[0] instanceof String) && !(arguments[0] instanceof Double))
-                throw new LuaException("Bad argument #1 (expected string or number)");
-            if (arguments.length > 1 && !(arguments[1] instanceof Double))
-                throw new LuaException("Bad argument #2 (expected number)");
-            if (arguments.length > 2 && !(arguments[2] instanceof Double))
-                throw new LuaException("Bad argument #3 (expected number)");
-            if (arguments[0] instanceof String) dir = ForgeDirection.valueOf(((String) arguments[0]).toUpperCase());
-            else dir = ForgeDirection.getOrientation((int) (double) (Double) arguments[0]);
+            ForgeDirection dir = arguments.direction(0);
             if (!isInventoryOnSide(dir)) throw new LuaException("Block is not a valid inventory");
             IInventory inventory = getInventoryForSide(dir);
-            int slots[] = inventory instanceof ISidedInventory
-                ? ((ISidedInventory) inventory).getAccessibleSlotsFromSide(dir.getOpposite().flag)
-                : getDefaultSlots(inventory);
+            int[] slots = InventoryUtils.slotsFor(inventory, dir.getOpposite());
             int slot = -1;
-            if (arguments.length > 2) {
-                slot = getNearestSlot((int) (double) (Double) arguments[2], slots);
+            if (arguments.has(2)) {
+                if (slots.length == 0) return new Object[] { false };
+                slot = getNearestSlot(arguments.integer(2), slots);
                 if (inventory.getStackInSlot(slot) == null) return new Object[] { false };
             } else {
-                for (int slot1 : slots) if (getStackInSlot(0) == null) {
-                    if (inventory.getStackInSlot(slot1) != null) {
-                        slot = slot1;
+                for (int candidate : slots) {
+                    ItemStack inSlot = inventory.getStackInSlot(candidate);
+                    if (inSlot == null) continue;
+                    // An empty sorter slot accepts anything; otherwise the items have to be interchangeable.
+                    if (getStackInSlot(0) == null || InventoryUtils.matches(inSlot, getStackInSlot(0))) {
+                        slot = candidate;
                         break;
-                    }
-                } else {
-                    if (inventory.getStackInSlot(slot1) != null) {
-                        if (inventory.getStackInSlot(slot1)
-                            .isItemEqual(getStackInSlot(0))) {
-                            slot = slot1;
-                            break;
-                        }
                     }
                 }
             }
             if (slot == -1) return new Object[] { false };
-            int amount = arguments.length > 1
-                ? MathHelper
-                    .clamp_int((int) (double) (Double) arguments[1], 0, inventory.getStackInSlot(slot).stackSize)
-                : inventory.getStackInSlot(slot).stackSize;
-            int transferred;
-            if (getStackInSlot(0) != null) {
-                transferred = MathHelper.clamp_int(
-                    getStackInSlot(0).stackSize + amount,
-                    getStackInSlot(0).stackSize,
-                    getStackInSlot(0).getMaxStackSize());
-                getStackInSlot(0).stackSize += transferred;
-                inventory.getStackInSlot(slot).stackSize -= transferred;
-            } else {
-                transferred = amount;
-                setInventorySlotContents(
-                    0,
-                    inventory.getStackInSlot(slot)
-                        .splitStack(transferred));
-            }
-            if (inventory.getStackInSlot(slot) != null && inventory.getStackInSlot(slot).stackSize < 1)
-                inventory.setInventorySlotContents(slot, null);
-            inventory.markDirty();
+            ItemStack source = inventory.getStackInSlot(slot);
+            if (source == null) return new Object[] { false };
+            int amount = MathHelper.clamp_int(arguments.integer(1, source.stackSize), 0, source.stackSize);
+            int moved = InventoryUtils.move(inventory, slot, this, 0, amount);
             markDirty();
-            return new Object[] { true };
+            return new Object[] { moved > 0 };
 
         } else if (method == 3) {
-            ForgeDirection dir;
-            if (arguments.length < 1) throw new LuaException("Too few arguments");
-            if (!(arguments[0] instanceof String) && !(arguments[0] instanceof Double))
-                throw new LuaException("Bad argument #1 (expected string or number)");
-            if (arguments[0] instanceof String) dir = ForgeDirection.valueOf(((String) arguments[0]).toUpperCase());
-            else dir = ForgeDirection.getOrientation((int) (double) (Double) arguments[0]);
-            return new Object[] { isInventoryOnSide(dir) };
+            return new Object[] { isInventoryOnSide(arguments.direction(0)) };
         }
         return new Object[0];
     }
 
     private int getNearestSlot(int requested, int[] slots) {
+        if (slots.length == 0) return -1;
         int difference = Integer.MAX_VALUE;
         int currentSlot = slots[0];
         for (int slot : slots) {
@@ -211,44 +140,28 @@ public class TileEntityInteractiveSorter extends MountedTileEntityInventory {
         return currentSlot;
     }
 
-    private int[] getDefaultSlots(IInventory inventory) {
-        int[] array = new int[inventory.getSizeInventory()];
-        for (int i = 0; i < inventory.getSizeInventory(); i++) array[i] = i;
-        return array;
-    }
-
+    /**
+     * Whether the block on one side exposes an inventory.
+     *
+     * @param dir the side, relative to this tile entity
+     * @return true when items can be pushed or pulled on that side
+     */
     private boolean isInventoryOnSide(ForgeDirection dir) {
-        if (!worldObj.isAirBlock(xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ)) {
-            Block block = worldObj.getBlock(xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ);
-            if (block instanceof BlockContainer || block instanceof IInventory) return true;
-            if (block.hasTileEntity(
-                worldObj.getBlockMetadata(xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ))) {
-                return worldObj.getTileEntity(
-                    xCoord + dir.offsetX,
-                    yCoord + dir.offsetY,
-                    zCoord + dir.offsetZ) instanceof IInventory;
-            }
-        }
-        return false;
+        return getInventoryForSide(dir) != null;
     }
 
+    /**
+     * @param dir the side, relative to this tile entity
+     * @return the inventory on that side, or {@code null}
+     */
     private IInventory getInventoryForSide(ForgeDirection dir) {
-        if (!worldObj.isAirBlock(xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ)) {
-            Block block = worldObj.getBlock(xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ);
-            if (block instanceof IInventory) {
-                return (IInventory) block;
-            }
-            if (block instanceof BlockContainer && block.hasTileEntity(
-                worldObj.getBlockMetadata(xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ)))
-                return (IInventory) worldObj
-                    .getTileEntity(xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ);
-        }
-        return null;
+        if (worldObj == null) return null;
+        return InventoryUtils.at(worldObj, xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ);
     }
 
     @Override
     public boolean equals(IPeripheral other) {
-        return other == this;
+        return this == other;
     }
 
     @Override
@@ -344,11 +257,16 @@ public class TileEntityInteractiveSorter extends MountedTileEntityInventory {
                 NBTTagString tagString = (NBTTagString) nbtBase;
                 return tagString.func_150285_a_();
 
-            case 9:
+            case 9: {
                 NBTTagList tagList = (NBTTagList) nbtBase;
-                Object[] tags = new Object[tagList.tagCount()];
-                for (int i = 0; i < tagList.tagCount(); i++) tags[i] = getObjectForNBT(tagList.removeTag(i));
+                int count = tagList.tagCount();
+                Object[] tags = new Object[count];
+                // removeTag shrinks the list, so removing index i each time skipped every other entry and left the
+                // tail null. The list is already a private copy, so draining it from the front is safe and keeps
+                // the order (CODE_REVIEW.md section 8.4).
+                for (int i = 0; i < count; i++) tags[i] = getObjectForNBT(tagList.removeTag(0));
                 return Util.arrayToMap(tags);
+            }
 
             case 10:
                 NBTTagCompound tagCompound = (NBTTagCompound) nbtBase;

@@ -65,7 +65,7 @@ public class DrawTextureCommand extends HelmetCommand {
 
     @Override
     public void writeToNBT(NBTTagCompound tagCompound) {
-        tagCompound.setString("resource", resource);
+        writeString(tagCompound, "resource", resource);
         tagCompound.setInteger("x", x);
         tagCompound.setInteger("y", y);
         tagCompound.setInteger("u", u);

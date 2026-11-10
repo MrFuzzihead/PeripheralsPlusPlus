@@ -33,8 +33,14 @@ public class ItemRenderAntenna implements IItemRenderer {
 
     @Override
     public void renderItem(ItemRenderType type, ItemStack item, Object... data) {
-        if (type == IItemRenderer.ItemRenderType.ENTITY) GL11.glTranslatef(-0.5F, 0.0F, -0.5F);
-        tileEntity.blockMetadata = 0;
-        this.renderer.renderTileEntityAt(this.tileEntity, 0.0D, 0.0D, 0.0D, 0.0F);
+        // The translate used to leak into whatever the caller rendered next (the inventory renderer, the HUD).
+        GL11.glPushMatrix();
+        try {
+            if (type == IItemRenderer.ItemRenderType.ENTITY) GL11.glTranslatef(-0.5F, 0.0F, -0.5F);
+            tileEntity.blockMetadata = 0;
+            this.renderer.renderTileEntityAt(this.tileEntity, 0.0D, 0.0D, 0.0D, 0.0F);
+        } finally {
+            GL11.glPopMatrix();
+        }
     }
 }

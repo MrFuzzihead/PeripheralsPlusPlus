@@ -1,6 +1,9 @@
 package com.austinv11.peripheralsplusplus.hooks;
 
-import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import net.minecraft.item.ItemStack;
 
@@ -14,8 +17,23 @@ import dan200.computercraft.api.ComputerCraftAPI;
  */
 public class ComputerCraftRegistry {
 
-    public static HashMap<Integer, IPocketComputerUpgrade> pocketUpgrades = new HashMap<Integer, IPocketComputerUpgrade>();
-    public static HashMap<ItemStack, Integer> craftingRecipes = new HashMap<ItemStack, Integer>();
+    /**
+     * Registered pocket upgrades by id. Concurrent because ComputerCraft reads this from the computer's server thread
+     * while {@code equipBack()} and the crafting recipe can touch it from the player's thread.
+     */
+    public static final Map<Integer, IPocketComputerUpgrade> pocketUpgrades = new ConcurrentHashMap<Integer, IPocketComputerUpgrade>();
+
+    /**
+     * Registered pocket upgrades, in registration order.
+     *
+     * <p>
+     * This used to be a {@code HashMap<ItemStack, Integer>} iterated with {@code isItemEqual}, which was both a
+     * misuse of a hash map (as a list) and silently lossy: {@link ItemStack} does not override {@code hashCode}, so
+     * two upgrades with equal items collided by identity. Reading the crafting item off each upgrade is exact and
+     * allocation free.
+     * </p>
+     */
+    public static final List<IPocketComputerUpgrade> pocketUpgradeList = new CopyOnWriteArrayList<IPocketComputerUpgrade>();
 
     /**
      * Use this to register pocket computer upgrades
@@ -42,8 +60,21 @@ public class ComputerCraftRegistry {
         if (upgrade.getUpgradeID() < Reference.FIRST_UNRESERVED_POCKET_UPGRADE_ID
             || pocketUpgrades.containsKey(upgrade.getUpgradeID())) throw new InvalidUpgradeIDException(upgrade);
         pocketUpgrades.put(upgrade.getUpgradeID(), upgrade);
-        craftingRecipes.put(upgrade.getCraftingItem(), upgrade.getUpgradeID());
+        pocketUpgradeList.add(upgrade);
         ComputerCraftAPI.registerPocketUpgrade(upgrade);
+    }
+
+    /**
+     * @param stack the item to match against every registered upgrade's crafting item
+     * @return the upgrade that item installs, or {@code null}
+     */
+    public static IPocketComputerUpgrade findUpgradeFor(ItemStack stack) {
+        if (stack == null) return null;
+        for (IPocketComputerUpgrade upgrade : pocketUpgradeList) {
+            ItemStack crafting = upgrade.getCraftingItem();
+            if (crafting != null && stack.isItemEqual(crafting)) return upgrade;
+        }
+        return null;
     }
 
     private static void checkCC() throws ComputerCraftNotFoundException {

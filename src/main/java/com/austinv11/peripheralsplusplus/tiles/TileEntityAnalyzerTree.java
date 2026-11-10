@@ -19,11 +19,6 @@ public class TileEntityAnalyzerTree extends TileEntityAnalyzer {
     }
 
     @Override
-    public String getName() {
-        return "tileEntityTreeAnalyzer";
-    }
-
-    @Override
     public String getPublicName() {
         return publicName;
     }

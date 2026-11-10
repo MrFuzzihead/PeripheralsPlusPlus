@@ -4,11 +4,8 @@ import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.Iterator;
 
-import net.minecraft.block.Block;
-import net.minecraft.block.BlockContainer;
 import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.inventory.IInventory;
-import net.minecraft.inventory.ISidedInventory;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -16,6 +13,7 @@ import net.minecraftforge.common.util.ForgeDirection;
 
 import com.austinv11.peripheralsplusplus.init.ModBlocks;
 import com.austinv11.peripheralsplusplus.reference.Config;
+import com.austinv11.peripheralsplusplus.utils.InventoryUtils;
 
 import appeng.api.AEApi;
 import appeng.api.config.Actionable;
@@ -56,7 +54,6 @@ import dan200.computercraft.api.peripheral.IPeripheral;
 public class TileEntityMEBridge extends MountedTileEntity implements IActionHost, IGridBlock {
 
     public static String publicName = "meBridge";
-    private String name = "tileEntityMEBridge";
     private HashMap<IComputerAccess, Boolean> computers = new HashMap<IComputerAccess, Boolean>();
     private IGridNode node;
     private boolean initialized = false;
@@ -64,10 +61,6 @@ public class TileEntityMEBridge extends MountedTileEntity implements IActionHost
 
     public TileEntityMEBridge() {
         super();
-    }
-
-    public String getName() {
-        return name;
     }
 
     @Override
@@ -88,15 +81,16 @@ public class TileEntityMEBridge extends MountedTileEntity implements IActionHost
 
     @Override
     public void updateEntity() {
-        if (!worldObj.isRemote) if (!initialized) {
-            if (placed != null) getNode().setPlayerID(
-                AEApi.instance()
-                    .registries()
-                    .players()
-                    .getID(placed.getGameProfile()));
-            getNode().updateState();
-            initialized = true;
-        }
+        if (worldObj.isRemote || initialized) return;
+        IGridNode gridNode = getNode();
+        if (gridNode == null) return;
+        if (placed != null) gridNode.setPlayerID(
+            AEApi.instance()
+                .registries()
+                .players()
+                .getID(placed.getGameProfile()));
+        gridNode.updateState();
+        initialized = true;
     }
 
     @Override
@@ -104,15 +98,20 @@ public class TileEntityMEBridge extends MountedTileEntity implements IActionHost
         return publicName;
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "listAll", "listItems", "listCraft", "retrieve", "craft" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "listAll", "listItems", "listCraft", "retrieve", "craft" };
+        return METHODS;
     }
 
     @Override
     public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] arguments)
         throws LuaException, InterruptedException {
         if (!Config.enableMEBridge) throw new LuaException("ME Bridges have been disabled");
+        if (node == null || node.getGrid() == null)
+            throw new LuaException("The ME Bridge is not connected to a network");
         IMEMonitor<IAEItemStack> monitor = ((IStorageGrid) node.getGrid()
             .getCache(IStorageGrid.class)).getItemInventory();
         // try {
@@ -132,70 +131,72 @@ public class TileEntityMEBridge extends MountedTileEntity implements IActionHost
                     monitor.getStorageList()
                         .iterator(),
                     2) };
-            case 3:
-                ForgeDirection dir;
+            case 3: {
                 if (arguments.length < 3) throw new LuaException("Too few arguments");
                 if (!(arguments[0] instanceof String)) throw new LuaException("Bad argument #1 (expected string)");
-                if (!(arguments[1] instanceof Double)) throw new LuaException("Bad argument #2 (expected number");
+                if (!(arguments[1] instanceof Double)) throw new LuaException("Bad argument #2 (expected number)");
                 if (!(arguments[2] instanceof String) && !(arguments[2] instanceof Double))
                     throw new LuaException("Bad argument #3 (expected string or number)");
-                Item item = GameRegistry.findItem(
-                    ((String) arguments[0]).split(":")[0],
-                    ((String) arguments[0]).split(":")[1].split(" ")[0]);
+                String spec = (String) arguments[0];
+                String[] parts = spec.split(":", 2);
+                if (parts.length < 2) throw new LuaException("Bad argument #1 (expected 'mod:item [meta]')");
+                String itemName = parts[1].split(" ")[0];
+                Item item = GameRegistry.findItem(parts[0], itemName);
+                if (item == null) throw new LuaException("Unknown item " + spec);
+                int meta = spec.contains(" ") ? Integer.parseInt(spec.split(" ")[1]) : 0;
                 long amount = (long) (int) (double) (Double) arguments[1];
-                if (arguments[2] instanceof String) dir = ForgeDirection.valueOf(((String) arguments[2]).toUpperCase());
-                else dir = ForgeDirection.getOrientation((int) (double) (Double) arguments[2]);
-                if (!isInventoryOnSide(dir)) throw new LuaException("Block is not a valid inventory");
+                ForgeDirection dir = arguments[2] instanceof String
+                    ? ForgeDirection.valueOf(((String) arguments[2]).toUpperCase())
+                    : ForgeDirection.getOrientation((int) (double) (Double) arguments[2]);
                 IInventory inventory = getInventoryForSide(dir);
-                long extracted = 0;
-                int meta = ((String) arguments[0]).contains(" ")
-                    ? Integer.valueOf(((String) arguments[0]).split(" ")[1])
-                    : 0;
+                if (inventory == null) throw new LuaException("Block is not a valid inventory");
                 IAEItemStack stack = findAEStackFromItemStack(monitor, new ItemStack(item, 1, meta));
-                if (stack != null) {
-                    if (amount > stack.getStackSize()) amount = stack.getStackSize();
-                    if (amount > getRemainingSlots(item, inventory)) amount = getRemainingSlots(item, inventory);
-                    IAEItemStack stackToGet = stack.copy();
-                    stackToGet.setStackSize(amount);
-                    IAEItemStack resultant = monitor
-                        .extractItems(stackToGet, Actionable.MODULATE, new MachineSource(this));
-                    if (resultant != null) {
-                        extracted = resultant.getStackSize();
-                        int[] slots = inventory instanceof ISidedInventory
-                            ? ((ISidedInventory) inventory).getAccessibleSlotsFromSide(dir.getOpposite().flag)
-                            : getDefaultSlots(inventory);
-                        int currentSlot = 0;
-                        while (!(resultant.getStackSize() < 1) && currentSlot < slots.length) {
-                            if (inventory.isItemValidForSlot(slots[currentSlot], new ItemStack(resultant.getItem()))) {
-                                if (inventory.getStackInSlot(slots[currentSlot]) == null) {
-                                    ItemStack toAdd = resultant.getItemStack();
-                                    int stackSize = (int) (resultant.getStackSize()
-                                        <= inventory.getInventoryStackLimit() ? resultant.getStackSize()
-                                            : inventory.getInventoryStackLimit());
-                                    toAdd.stackSize = stackSize;
-                                    inventory.setInventorySlotContents(slots[currentSlot], toAdd);
-                                    resultant.setStackSize(resultant.getStackSize() - stackSize);
-                                } else {
-                                    ItemStack current = inventory.getStackInSlot(slots[currentSlot]);
-                                    ItemStack toAdd = resultant.getItemStack();
-                                    if (current.isItemEqual(toAdd)) {
-                                        int stackSize = (int) (resultant.getStackSize() + current.stackSize
-                                            <= inventory.getInventoryStackLimit()
-                                                ? resultant.getStackSize() + current.stackSize
-                                                : inventory.getInventoryStackLimit());
-                                        int change = stackSize - current.stackSize;
-                                        current.stackSize = stackSize;
-                                        inventory.setInventorySlotContents(slots[currentSlot], current);
-                                        resultant.setStackSize(resultant.getStackSize() - change);
-                                    }
-                                }
-                                inventory.markDirty();
-                            }
-                            currentSlot++;
-                        }
-                    }
+                if (stack == null) return new Object[] { 0L };
+
+                ItemStack template = new ItemStack(item, 1, meta);
+                int[] slots = InventoryUtils.slotsFor(inventory, dir.getOpposite());
+                long capacity = 0;
+                for (int slot : slots) {
+                    if (!inventory.isItemValidForSlot(slot, template)) continue;
+                    ItemStack existing = inventory.getStackInSlot(slot);
+                    if (existing != null && !InventoryUtils.matches(existing, template)) continue;
+                    capacity += InventoryUtils.room(existing, template, inventory.getInventoryStackLimit());
                 }
-                return new Object[] { extracted };
+                amount = Math.min(amount, Math.min(stack.getStackSize(), capacity));
+                if (amount <= 0) return new Object[] { 0L };
+
+                IAEItemStack request = stack.copy();
+                request.setStackSize(amount);
+                IAEItemStack extracted = monitor.extractItems(request, Actionable.MODULATE, new MachineSource(this));
+                if (extracted == null) return new Object[] { 0L };
+
+                long remaining = extracted.getStackSize();
+                for (int slot : slots) {
+                    if (remaining <= 0) break;
+                    if (!inventory.isItemValidForSlot(slot, template)) continue;
+                    ItemStack existing = inventory.getStackInSlot(slot);
+                    if (existing != null && !InventoryUtils.matches(existing, template)) continue;
+                    int room = InventoryUtils.room(existing, template, inventory.getInventoryStackLimit());
+                    if (room <= 0) continue;
+                    int take = (int) Math.min(remaining, room);
+                    if (existing == null) {
+                        inventory.setInventorySlotContents(slot, new ItemStack(item, take, meta));
+                    } else {
+                        ItemStack merged = existing.copy();
+                        merged.stackSize = existing.stackSize + take;
+                        inventory.setInventorySlotContents(slot, merged);
+                    }
+                    remaining -= take;
+                }
+                inventory.markDirty();
+                if (remaining > 0) {
+                    // Never destroy items: whatever did not fit goes back into the network.
+                    IAEItemStack refund = extracted.copy();
+                    refund.setStackSize(remaining);
+                    monitor.injectItems(refund, Actionable.MODULATE, new MachineSource(this));
+                }
+                return new Object[] { extracted.getStackSize() - remaining };
+            }
             case 4:
                 if (arguments.length < 2) throw new LuaException("Too few arguments");
                 if (!(arguments[0] instanceof String)) throw new LuaException("Bad argument #1 (expected string)");
@@ -248,51 +249,13 @@ public class TileEntityMEBridge extends MountedTileEntity implements IActionHost
         return new Object[0];
     }
 
-    private int[] getDefaultSlots(IInventory inventory) {
-        int[] array = new int[inventory.getSizeInventory()];
-        for (int i = 0; i < inventory.getSizeInventory(); i++) array[i] = i;
-        return array;
-    }
-
-    private boolean isInventoryOnSide(ForgeDirection dir) {
-        if (!worldObj.isAirBlock(xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ)) {
-            Block block = worldObj.getBlock(xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ);
-            if (block instanceof BlockContainer || block instanceof IInventory) return true;
-            if (block.hasTileEntity(
-                worldObj.getBlockMetadata(xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ))) {
-                return worldObj.getTileEntity(
-                    xCoord + dir.offsetX,
-                    yCoord + dir.offsetY,
-                    zCoord + dir.offsetZ) instanceof IInventory;
-            }
-        }
-        return false;
-    }
-
+    /**
+     * @param dir the side, relative to this tile entity
+     * @return the inventory on that side, or {@code null}
+     */
     private IInventory getInventoryForSide(ForgeDirection dir) {
-        if (!worldObj.isAirBlock(xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ)) {
-            Block block = worldObj.getBlock(xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ);
-            if (block instanceof IInventory) {
-                return (IInventory) block;
-            }
-            if (block instanceof BlockContainer && block.hasTileEntity(
-                worldObj.getBlockMetadata(xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ)))
-                return (IInventory) worldObj
-                    .getTileEntity(xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ);
-        }
-        return null;
-    }
-
-    private int getRemainingSlots(Item item, IInventory inventory) {
-        int slots = 0;
-        for (int i = 0; i < inventory.getSizeInventory(); i++) {
-            if (inventory.isItemValidForSlot(i, new ItemStack(item)) && inventory.getStackInSlot(i) == null)
-                slots += inventory.getInventoryStackLimit();
-            else if (inventory.isItemValidForSlot(i, new ItemStack(item)) && inventory.getStackInSlot(i)
-                .getItem() == item && (inventory.getInventoryStackLimit() >= inventory.getStackInSlot(i).stackSize))
-                slots += inventory.getInventoryStackLimit() - inventory.getStackInSlot(i).stackSize;
-        }
-        return slots;
+        if (worldObj == null) return null;
+        return InventoryUtils.at(worldObj, xCoord + dir.offsetX, yCoord + dir.offsetY, zCoord + dir.offsetZ);
     }
 
     @Override
@@ -309,7 +272,7 @@ public class TileEntityMEBridge extends MountedTileEntity implements IActionHost
 
     @Override
     public boolean equals(IPeripheral other) {
-        return (this == other);
+        return this == other;
     }
 
     @Override
@@ -366,8 +329,11 @@ public class TileEntityMEBridge extends MountedTileEntity implements IActionHost
 
     private IGridNode getNode() {
         if (worldObj == null || worldObj.isRemote) return null;
-        return node = AEApi.instance()
+        // Create once. This used to call createGridNode(this) on every invocation, which orphaned the node loaded
+        // from NBT (leaking its AE channel) and created a second one for updateState (CODE_REVIEW.md section 3.4).
+        if (node == null) node = AEApi.instance()
             .createGridNode(this);
+        return node;
     }
 
     @Override

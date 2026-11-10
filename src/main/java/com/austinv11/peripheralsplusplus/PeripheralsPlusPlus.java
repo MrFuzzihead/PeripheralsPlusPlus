@@ -8,7 +8,6 @@ import com.austinv11.collectiveframework.minecraft.config.ConfigException;
 import com.austinv11.collectiveframework.minecraft.config.ConfigRegistry;
 import com.austinv11.collectiveframework.minecraft.logging.Logger;
 import com.austinv11.collectiveframework.minecraft.reference.ModIds;
-import com.austinv11.collectiveframework.multithreading.SimpleRunnable;
 import com.austinv11.peripheralsplusplus.client.gui.GuiHandler;
 import com.austinv11.peripheralsplusplus.creativetab.CreativeTabPPP;
 import com.austinv11.peripheralsplusplus.entities.EntityNanoBotSwarm;
@@ -67,6 +66,7 @@ import cpw.mods.fml.common.Loader;
 import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.SidedProxy;
 import cpw.mods.fml.common.event.FMLInitializationEvent;
+import cpw.mods.fml.common.event.FMLLoadCompleteEvent;
 import cpw.mods.fml.common.event.FMLPostInitializationEvent;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
 import cpw.mods.fml.common.network.NetworkRegistry;
@@ -211,49 +211,44 @@ public class PeripheralsPlusPlus {
     public void postInit(FMLPostInitializationEvent event) throws ComputerCraftNotFoundException {
         Recipes.init();
         BlockDispenser.dispenseBehaviorRegistry.putObject(ModItems.nanoSwarm, new ItemNanoSwarm.BehaviorNanoSwarm());
-        SimpleRunnable.RESTRICT_THREAD_USAGE = false;
     }
 
+    /**
+     * Development/CI only: {@code -PsmokeTest} makes the game exit itself once FML has finished loading, so a
+     * dedicated server (or a client under Xvfb) can be booted without an operator.
+     *
+     * @see SmokeTestHook
+     */
+    @Mod.EventHandler
+    public void loadComplete(FMLLoadCompleteEvent event) {
+        SmokeTestHook.scheduleExitIfRequested();
+    }
+
+    /** One listener for the whole mod, registered the first time a {@link TurtleDropCollector} upgrade appears. */
+    private static boolean dropCollectorRegistered;
+
+    /**
+     * Registers a turtle upgrade and, once, the living-drops listener the tool upgrades need.
+     *
+     * <p>
+     * A listener used to be registered per upgrade instance. {@link TurtleProjRed} and {@link TurtleBluePower} both
+     * extend {@link TurtleDropCollector} and thirty anonymous subclasses are registered, so every entity death ran
+     * thirty identical handlers (CODE_REVIEW.md section 4.16).
+     * </p>
+     *
+     * @param u the upgrade to register
+     */
     public static void registerUpgrade(ITurtleUpgrade u) {
         ComputerCraftAPI.registerTurtleUpgrade(u);
         CreativeTabPPP.upgrades.add(u);
-        if (u instanceof TurtleDropCollector)
-            MinecraftForge.EVENT_BUS.register(((TurtleDropCollector) u).newInstanceOfListener());
+        if (u instanceof TurtleDropCollector && !dropCollectorRegistered) {
+            MinecraftForge.EVENT_BUS.register(new TurtleDropCollector.Listener());
+            dropCollectorRegistered = true;
+        }
     }
 
     private void registerRedPowerLikeUpgrades() {
-
-        // Better solution but don't keeps old ids
-
-        // int i = 0;
-        // for (final ToolType type : ToolType.values()) {
-        // if (type == ToolType.UNKNOWN) continue;
-        //
-        // for (final ToolMaterial material : ToolMaterial.values()) {
-        // if (material == ToolMaterial.UNKNOWN) continue;
-        //
-        // final int id = i++;
-        // registerUpgrade(new TurtleProjRed() {
-        //
-        // @Override
-        // public ToolType getToolType() {
-        // return type;
-        // }
-        //
-        // @Override
-        // public ToolMaterial getToolMaterial() {
-        // return material;
-        // }
-        //
-        // @Override
-        // public int getID() {
-        // return id;
-        // }
-        // });
-        // }
-        // }
-
-        // Not as good as the first but better than yours and it keeps the same ids as before
+        // Ids are base + index so saved worlds keep the ids they had before (see ReferenceTest).
         if (Loader.isModLoaded(ModIds.ProjectRed_Exploration)) {
             int i = 0;
             for (final TurtleProjRed.ToolMaterial material : new TurtleProjRed.ToolMaterial[] {

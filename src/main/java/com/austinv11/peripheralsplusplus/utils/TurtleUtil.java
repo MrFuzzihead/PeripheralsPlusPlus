@@ -1,7 +1,6 @@
 package com.austinv11.peripheralsplusplus.utils;
 
 import java.util.ArrayList;
-import java.util.EnumSet;
 import java.util.List;
 
 import net.minecraft.block.Block;
@@ -9,6 +8,7 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
+import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.ChunkCoordinates;
 import net.minecraft.util.Facing;
@@ -18,12 +18,28 @@ import net.minecraftforge.common.IShearable;
 import com.austinv11.collectiveframework.minecraft.utils.NBTHelper;
 
 import cpw.mods.fml.common.registry.GameRegistry;
-import dan200.computercraft.api.peripheral.IPeripheral;
 import dan200.computercraft.api.turtle.ITurtleAccess;
 import dan200.computercraft.api.turtle.ITurtleUpgrade;
-import dan200.computercraft.api.turtle.TurtleSide;
+import dan200.computercraft.shared.turtle.blocks.ITurtleTile;
 
 public class TurtleUtil {
+
+    /**
+     * Gets the turtle at a tile entity, if there is one.
+     *
+     * <p>
+     * This used to live in a second utility class, {@code TurtleUtils}, whose only method was this one. It also used
+     * to guess the tile entity class name and call {@code getAccess} reflectively; the API interface is public.
+     * </p>
+     *
+     * @param te the tile entity to inspect
+     * @return the turtle access, or {@code null} when the tile entity is not a turtle
+     */
+    public static ITurtleAccess getTurtle(TileEntity te) {
+        if (te instanceof ITurtleAccess) return (ITurtleAccess) te;
+        if (te instanceof ITurtleTile) return ((ITurtleTile) te).getAccess();
+        return null;
+    }
 
     public static List<ItemStack> harvestBlock(ITurtleAccess turtle, FakeTurtlePlayer player, int dir,
         ItemStack itemToUse) {
@@ -56,26 +72,50 @@ public class TurtleUtil {
             .getEntitiesWithinAABBExcludingEntity(player, box);
     }
 
-    public static Entity getClosestShearableEntity(List<Entity> list, Entity ent) {
-        Vec3 from = Vec3.createVectorHelper(ent.posX, ent.posY, ent.posZ);
-        Entity returnVal = null;
-        double lastDistance = Double.MAX_VALUE;
-        for (Entity entity : list) if (entity instanceof IShearable) {
-            Vec3 to = Vec3.createVectorHelper(entity.posX, entity.posY, entity.posZ);
-            if (to.distanceTo(from) < lastDistance) returnVal = entity;
-        }
-        return returnVal;
+    /**
+     * The entity of the given type closest to {@code ent}.
+     *
+     * @param list the candidate entities
+     * @param ent  the reference entity
+     * @return the closest candidate, or {@code null} when the list holds none
+     */
+    public static Entity getClosestEntity(List<Entity> list, Entity ent) {
+        return getClosest(list, ent, null);
     }
 
-    public static Entity getClosestEntity(List<Entity> list, Entity ent) {
+    /**
+     * The shearable entity closest to {@code ent}.
+     *
+     * @param list the candidate entities
+     * @param ent  the reference entity
+     * @return the closest shearable candidate, or {@code null}
+     */
+    public static Entity getClosestShearableEntity(List<Entity> list, Entity ent) {
+        return getClosest(list, ent, IShearable.class);
+    }
+
+    /**
+     * @param list     the candidate entities
+     * @param ent      the reference entity
+     * @param required a type every candidate must implement, or {@code null}
+     * @return the closest matching entity, or {@code null}
+     */
+    private static Entity getClosest(List<Entity> list, Entity ent, Class<?> required) {
+        if (list == null || ent == null) return null;
         Vec3 from = Vec3.createVectorHelper(ent.posX, ent.posY, ent.posZ);
-        Entity returnVal = null;
-        double lastDistance = Double.MAX_VALUE;
-        for (Entity entity : list) {
-            Vec3 to = Vec3.createVectorHelper(entity.posX, entity.posY, entity.posZ);
-            if (to.distanceTo(from) < lastDistance) returnVal = entity;
+        Entity closest = null;
+        double closestDistance = Double.MAX_VALUE;
+        for (Entity candidate : list) {
+            if (required != null && !required.isInstance(candidate)) continue;
+            Vec3 to = Vec3.createVectorHelper(candidate.posX, candidate.posY, candidate.posZ);
+            double distance = to.distanceTo(from);
+            // closestDistance was never assigned, so this used to return whichever entity came last in the list.
+            if (distance < closestDistance) {
+                closestDistance = distance;
+                closest = candidate;
+            }
         }
-        return returnVal;
+        return closest;
     }
 
     public static void addItemListToInv(List<ItemStack> items, ITurtleAccess turtle) {
@@ -151,21 +191,4 @@ public class TurtleUtil {
         return getTurtle(isAdvanced, null);
     }
 
-    public static <T> T getPeripheral(ITurtleAccess turtle, Class<T> clazz) {
-        for (TurtleSide side : EnumSet.allOf(TurtleSide.class)) {
-            IPeripheral peripheral = turtle.getPeripheral(side);
-            if (peripheral != null && clazz.isAssignableFrom(peripheral.getClass())) return (T) peripheral;
-        }
-
-        return null;
-    }
-
-    public static TurtleSide getPeripheralSide(ITurtleAccess turtle, Class clazz) {
-        for (TurtleSide side : EnumSet.allOf(TurtleSide.class)) {
-            IPeripheral peripheral = turtle.getPeripheral(side);
-            if (peripheral != null && clazz.isAssignableFrom(peripheral.getClass())) return side;
-        }
-
-        return null;
-    }
 }

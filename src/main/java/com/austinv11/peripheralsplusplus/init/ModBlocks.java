@@ -2,6 +2,7 @@ package com.austinv11.peripheralsplusplus.init;
 
 import net.minecraft.block.BlockContainer;
 
+import com.austinv11.collectiveframework.minecraft.reference.ModIds;
 import com.austinv11.peripheralsplusplus.PeripheralsPlusPlus;
 import com.austinv11.peripheralsplusplus.blocks.BlockAIChatBox;
 import com.austinv11.peripheralsplusplus.blocks.BlockAnalyzerBee;
@@ -50,7 +51,7 @@ public class ModBlocks {
     public static final BlockPPP speaker = new BlockSpeaker();
     public static final BlockPPP antenna = new BlockAntenna();
     public static final BlockPPP peripheralContainer = new BlockPeripheralContainer();
-    public static final BlockPPP meBridge = new BlockMEBridge();
+    public static BlockPPP meBridge;
     public static final BlockPPP dummyBlock = new BlockDummyBlock();
     public static final BlockPPP noteBlock = new BlockNote();
     public static final BlockPPP turtle = new BlockTurtle();
@@ -63,12 +64,14 @@ public class ModBlocks {
         GameRegistry.registerBlock(chatBox, "chatBox");
         GameRegistry.registerBlock(aiChatBox, "aiChatBox");
         GameRegistry.registerBlock(playerSensor, "playerSensor");
-        if (Loader.isModLoaded("ThermalExpansion")) {
+        // 5.37: the tile entity is registered for ThermalExpansion *or* BuildCraft, so the block has to exist for
+        // both, or the BuildCraft branch of the recipe below ends up with a null block.
+        if (Loader.isModLoaded("ThermalExpansion") || Loader.isModLoaded("BuildCraft|Core")) {
             rfCharger = new BlockRFCharger();
             GameRegistry.registerBlock(rfCharger, "rfCharger");
         }
         GameRegistry.registerBlock(oreDictionary, "oreDictionary");
-        if (Loader.isModLoaded("Forestry")) {
+        if (Loader.isModLoaded(ModIds.Forestry)) {
             PeripheralsPlusPlus.LOGGER.info("Forestry is loaded! Registering analyzer peripherals...");
             beeAnalyzer = new BlockAnalyzerBee();
             GameRegistry.registerBlock(beeAnalyzer, "beeAnalyzer");
@@ -83,8 +86,9 @@ public class ModBlocks {
         GameRegistry.registerBlock(speaker, "speaker");
         GameRegistry.registerBlock(antenna, "antenna");
         GameRegistry.registerBlock(peripheralContainer, ItemBlockPeripheralContainer.class, "peripheralContainer");
-        if (Loader.isModLoaded("appliedenergistics2")) {
+        if (Loader.isModLoaded(ModIds.AppliedEnergistics2)) {
             PeripheralsPlusPlus.LOGGER.info("Applied Energistics is loaded! Registering the ME Bridge...");
+            meBridge = new BlockMEBridge();
             GameRegistry.registerBlock(meBridge, "meBridge");
         } else PeripheralsPlusPlus.LOGGER.info("Applied Energistics not found, skipping the ME Bridge");
         GameRegistry.registerBlock(dummyBlock, "dummyBlock");

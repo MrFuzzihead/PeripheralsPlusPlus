@@ -9,7 +9,7 @@ import net.minecraftforge.common.util.ForgeDirection;
 
 import com.austinv11.collectiveframework.minecraft.tiles.NetworkedTileEntity;
 import com.austinv11.peripheralsplusplus.reference.Config;
-import com.austinv11.peripheralsplusplus.utils.TurtleUtils;
+import com.austinv11.peripheralsplusplus.utils.TurtleUtil;
 
 import cofh.api.energy.EnergyStorage;
 import cofh.api.energy.IEnergyReceiver;
@@ -20,14 +20,9 @@ public class TileEntityRFCharger extends NetworkedTileEntity implements IEnergyR
     private EnergyStorage storage = new EnergyStorage(80000);// Leadstone Capacitor
 
     public static String publicName = "rfCharger";
-    private String name = "tileEntityrfCharger";
 
     public TileEntityRFCharger() {
         super();
-    }
-
-    public String getName() {
-        return name;
     }
 
     @Override
@@ -55,26 +50,36 @@ public class TileEntityRFCharger extends NetworkedTileEntity implements IEnergyR
                 if (!getWorldObj().blockExists(x, y, z)) continue;
                 TileEntity te = getWorldObj().getTileEntity(x, y, z);
                 if (te != null) {
-                    ITurtleAccess turtle = TurtleUtils.getTurtle(te);
+                    ITurtleAccess turtle = TurtleUtil.getTurtle(te);
                     if (turtle != null) {
                         turtles.add(turtle);
                     }
                 }
             }
-            int rate = ((int) Math.floor((float) 6 / (float) turtles.size()));
+            if (turtles.isEmpty()) return;
+            // Spread this tick's fuel budget over the adjacent turtles instead of dividing 6 by a possibly empty
+            // list (which yielded Integer.MAX_VALUE, CODE_REVIEW.md section 4.11).
+            int rate = Math.max(1, 6 / turtles.size());
             for (ITurtleAccess turtle : turtles) {
-                if (storage.getEnergyStored() >= rate)
-                    storage.extractEnergy(addFuel(turtle, rate) * Config.fuelRF, false);
+                int accepted = addFuel(turtle, rate);
+                if (accepted > 0) storage.extractEnergy(accepted * Config.fuelRF, false);
             }
         }
     }
 
+    /**
+     * @param turtle the turtle to refuel
+     * @param rate   the fuel requested for this tick
+     * @return the fuel actually added, never more than the turtle's remaining capacity
+     */
     private int addFuel(ITurtleAccess turtle, int rate) {
-        if (turtle.getFuelLimit() > turtle.getFuelLevel()) {
-            turtle.setFuelLevel(rate + turtle.getFuelLevel());// Bad fix for a crash with turtle.addFuel()
-            return rate;
-        }
-        return 0;
+        int space = turtle.getFuelLimit() - turtle.getFuelLevel();
+        if (space <= 0) return 0;
+        int accepted = Math.min(rate, space);
+        // setFuelLevel rather than addFuel: addFuel round-trips through the turtle's own NBT and used to crash here.
+        // This is the original workaround, now with the capacity clamp it was missing.
+        turtle.setFuelLevel(turtle.getFuelLevel() + accepted);
+        return accepted;
     }
 
     @Override

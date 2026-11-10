@@ -15,11 +15,6 @@ import dan200.computercraft.api.turtle.ITurtleAccess;
 public class TileEntityResupplyStation extends TileEntityInventory {
 
     public static String publicName = "resupplyStation";
-    private String name = "tileEntityResupplyStation";
-
-    public String getName() {
-        return name;
-    }
 
     @Override
     public int getSize() {

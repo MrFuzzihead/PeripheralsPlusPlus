@@ -26,7 +26,7 @@ public class AudioPacket implements IMessage {
 
     public AudioPacket() {}
 
-    public AudioPacket(String lang, String text, int x, int y, int z, int world, TurtleSide side) {
+    public AudioPacket(String lang, String text, int x, int y, int z, TurtleSide side) {
         this.lang = lang;
         this.text = text;
         this.x = x;
@@ -63,7 +63,8 @@ public class AudioPacket implements IMessage {
 
         @Override
         public IMessage onMessage(AudioPacket message, MessageContext ctx) {
-            new AudioThread(message).start();
+            // startOnce(): CollectiveFramework 1.0.1's start() schedules a repeating task (CODE_REVIEW.md 3.1).
+            new AudioThread(message).startOnce();
             return null;
         }
 
@@ -91,9 +92,7 @@ public class AudioPacket implements IMessage {
                             Minecraft.getMinecraft().theWorld,
                             message.side));
                 } catch (Exception e) {
-                    e.printStackTrace();
-                } finally {
-                    this.disable(true);
+                    PeripheralsPlusPlus.LOGGER.error("Unable to play the translated audio: " + e.getMessage());
                 }
             }
 
@@ -117,7 +116,7 @@ public class AudioPacket implements IMessage {
                 for (String query : words) try {
                     TranslateUtils.playAudio(query, message.lang);
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    PeripheralsPlusPlus.LOGGER.error("Unable to play a translated audio chunk: " + e.getMessage());
                 }
             }
         }

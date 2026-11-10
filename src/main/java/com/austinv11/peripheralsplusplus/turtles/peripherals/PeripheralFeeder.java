@@ -28,9 +28,12 @@ public class PeripheralFeeder extends MountedPeripheral {
         return "feeder";
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "feed" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "feed" };
+        return METHODS;
     }
 
     @Override
@@ -70,6 +73,6 @@ public class PeripheralFeeder extends MountedPeripheral {
 
     @Override
     public boolean equals(IPeripheral other) {
-        return (other == this);
+        return this == other;
     }
 }

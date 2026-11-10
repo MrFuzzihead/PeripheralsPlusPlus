@@ -4,8 +4,9 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.World;
 
+import com.austinv11.peripheralsplusplus.PeripheralsPlusPlus;
 import com.austinv11.peripheralsplusplus.tiles.TileEntitySpeaker;
-import com.austinv11.peripheralsplusplus.utils.TurtleUtils;
+import com.austinv11.peripheralsplusplus.utils.TurtleUtil;
 
 import cpw.mods.fml.common.network.ByteBufUtils;
 import cpw.mods.fml.common.network.simpleimpl.IMessage;
@@ -65,11 +66,11 @@ public class SynthResponsePacket implements IMessage {
             if (message.side == null) ((TileEntitySpeaker) message.world.getTileEntity(message.x, message.y, message.z))
                 .onSpeechCompletion(message.text, null);
             else try {
-                ITurtleAccess turtle = TurtleUtils
+                ITurtleAccess turtle = TurtleUtil
                     .getTurtle(message.world.getTileEntity(message.x, message.y, message.z));
                 ((TileEntitySpeaker) turtle.getPeripheral(message.side)).onSpeechCompletion(message.text, null);
             } catch (Exception e) {
-                e.printStackTrace();
+                PeripheralsPlusPlus.LOGGER.error("Unable to resolve the speaker for a synthesis response: " + e);
             }
             return null;
         }

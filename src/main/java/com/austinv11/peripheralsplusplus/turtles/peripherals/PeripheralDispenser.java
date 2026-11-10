@@ -8,6 +8,7 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 
+import com.austinv11.peripheralsplusplus.lua.LuaArgs;
 import com.austinv11.peripheralsplusplus.reference.Config;
 
 import dan200.computercraft.api.lua.ILuaContext;
@@ -29,25 +30,26 @@ public class PeripheralDispenser extends MountedPeripheral {
         return "flinging";
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "dispense", "dispenseUp", "dispenseDown" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "dispense", "dispenseUp", "dispenseDown" };
+        return METHODS;
     }
 
     @Override
-    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] arguments)
+    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] rawArguments)
         throws LuaException, InterruptedException {
         if (!Config.enableFlingingTurtle) throw new LuaException("Flinging turtles have been disabled");
-        if (arguments.length > 0 && !(arguments[0] instanceof Double))
-            throw new LuaException("Bad argument #1 (expected number)");
-        int slot = 1;
+        LuaArgs arguments = LuaArgs.of(rawArguments);
+        // Slot 1 in Lua is the first turtle slot; no argument means the selected slot. The old code started at 1
+        // and *added* the argument, so dispense(0) used slot 1 and dispense(1) used slot 2 (CODE_REVIEW.md 4.10).
+        int slot = arguments.integer(0, turtle.getSelectedSlot() + 1) - 1;
         int direction;
         if (method == 1) direction = ForgeDirection.DOWN.flag; // Why these are reversed, idk. Dispensers be dum
         else if (method == 2) direction = ForgeDirection.UP.flag;
         else direction = turtle.getDirection();
-        turtle.getDirection();
-        if (arguments.length > 0) slot += (int) (double) (Double) arguments[0];
-        else slot = turtle.getSelectedSlot();
 
         synchronized (this) {
             ItemStack stack = turtle.getInventory()
@@ -59,7 +61,7 @@ public class PeripheralDispenser extends MountedPeripheral {
                     BlockSourceTurtle blockSource = new BlockSourceTurtle(direction);
                     ItemStack newStack = behavior.dispense(blockSource, stack);
                     turtle.getInventory()
-                        .setInventorySlotContents(slot, newStack.stackSize == 0 ? null : newStack);
+                        .setInventorySlotContents(slot, newStack == null || newStack.stackSize == 0 ? null : newStack);
                     turtle.getInventory()
                         .markDirty();
                 }

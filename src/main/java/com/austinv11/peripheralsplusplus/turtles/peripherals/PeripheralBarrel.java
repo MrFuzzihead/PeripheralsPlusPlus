@@ -7,6 +7,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.oredict.OreDictionary;
 
+import com.austinv11.peripheralsplusplus.lua.LuaArgs;
 import com.austinv11.peripheralsplusplus.reference.Config;
 
 import dan200.computercraft.api.lua.ILuaContext;
@@ -51,31 +52,27 @@ public class PeripheralBarrel extends MountedPeripheral {
         }
     }
 
-    private String getUnwrappedUnlocalizedName(String unlocalizedName) {// Removes the "item." from the item name
-        return unlocalizedName.substring(unlocalizedName.indexOf(".") + 1);
-    }
-
     @Override
     public String getType() {
         return "barrel";
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "get", "put", "getUnlocalizedName", "getLocalizedName",
+        "getItemID", "getAmount", "getOreDictEntries" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "get", "put", "getUnlocalizedName", "getLocalizedName", "getItemID", "getAmount",
-            "getOreDictEntries" };
+        return METHODS;
     }
 
     @Override
-    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] arguments)
+    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] rawArguments)
         throws LuaException, InterruptedException {
         if (!Config.enableBarrelTurtle) throw new LuaException("Barrel Turtles have been disabled");
+        LuaArgs arguments = LuaArgs.of(rawArguments);
         if (method == 0) {
-            int amount = STACK_SIZE;
-            if (arguments.length > 0) {
-                if (!(arguments[0] instanceof Double)) throw new LuaException("Bad argument #1 (expected number)");
-                amount = (int) (double) (Double) arguments[0];
-            }
+            int amount = arguments.integer(0, STACK_SIZE);
             if (CURRENT_USAGE < amount) amount = CURRENT_USAGE;
             if (ITEM_TYPE_STORED == null) return new Object[] { 0 };
             ItemStack slot = turtle.getInventory()
@@ -86,6 +83,7 @@ public class PeripheralBarrel extends MountedPeripheral {
                 if (!slot.isItemEqual(new ItemStack(itemStored, stackCount, ITEM_META_STORED)))
                     throw new LuaException("Item mismatch");
                 if (amount + slot.stackSize > STACK_SIZE) amount = STACK_SIZE - slot.stackSize;
+                if (amount <= 0) return new Object[] { 0 };
                 stackCount = amount + slot.stackSize;
             }
             ItemStack stack = new ItemStack(itemStored, stackCount, ITEM_META_STORED);
@@ -96,11 +94,7 @@ public class PeripheralBarrel extends MountedPeripheral {
             changed = true;
             return new Object[] { amount };
         } else if (method == 1) {
-            int amount = 64;
-            if (arguments.length > 0) {
-                if (!(arguments[0] instanceof Double)) throw new LuaException("Bad argument #1 (expected number)");
-                amount = (int) (double) (Double) arguments[0];
-            }
+            int amount = arguments.integer(0, 64);
             if (turtle.getInventory()
                 .getStackInSlot(turtle.getSelectedSlot()) == null) return new Object[] { 0 };
             ItemStack items = turtle.getInventory()
@@ -109,8 +103,9 @@ public class PeripheralBarrel extends MountedPeripheral {
             if (amount > items.stackSize) amount = items.stackSize;
             if (amount > (MAX_SIZE - CURRENT_USAGE)) amount = MAX_SIZE - CURRENT_USAGE;
             if (ITEM_TYPE_STORED != null) {
-                ItemStack temp = new ItemStack(ITEM_TYPE_STORED);
-                if (!temp.isItemEqual(items)) return new Object[] { 0 };
+                // Compare damage too: the old check used a meta-0 template, so a damaged barrel item mismatched.
+                if (items.getItem() != ITEM_TYPE_STORED || items.getItemDamage() != ITEM_META_STORED)
+                    return new Object[] { 0 };
             } else {
                 Item type = items.getItem();
                 ITEM_TYPE_STORED = type;
@@ -141,11 +136,11 @@ public class PeripheralBarrel extends MountedPeripheral {
             if (ITEM_TYPE_STORED != null) amount = CURRENT_USAGE;
             return new Object[] { amount };
         } else if (method == 6) {
-            int[] ids = OreDictionary.getOreIDs(new ItemStack(ITEM_TYPE_STORED));
+            if (ITEM_TYPE_STORED == null) return new Object[] { new HashMap<Integer, String>() };
+            int[] ids = OreDictionary.getOreIDs(new ItemStack(ITEM_TYPE_STORED, 1, ITEM_META_STORED));
             HashMap<Integer, String> entries = new HashMap<Integer, String>();
-            for (int i = 0; i < ids.length; i++) {
-                entries.put(i, OreDictionary.getOreName(ids[i]));
-            }
+            // 1-based like every other Lua table in this mod.
+            for (int i = 0; i < ids.length; i++) entries.put(i + 1, OreDictionary.getOreName(ids[i]));
             return new Object[] { entries };
         }
         return new Object[0];
@@ -153,10 +148,12 @@ public class PeripheralBarrel extends MountedPeripheral {
 
     @Override
     public boolean equals(IPeripheral other) {
-        return (this == other);
+        return this == other;
     }
 
     public void update() {
+        // Only the tick after something changed; this used to rewrite the turtle's upgrade NBT every tick.
+        if (!changed) return;
         NBTTagCompound tag = turtle.getUpgradeNBTData(side);
         tag.setInteger("maxSize", MAX_SIZE);
         tag.setInteger("stackSize", STACK_SIZE);

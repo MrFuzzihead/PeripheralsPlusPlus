@@ -1,22 +1,18 @@
 package com.austinv11.peripheralsplusplus.entities;
 
-import net.minecraft.client.Minecraft;
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
-import net.minecraft.init.Items;
-import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.ChunkCoordinates;
 import net.minecraft.world.World;
 
-import org.lwjgl.input.Keyboard;
-
 import com.austinv11.peripheralsplusplus.PeripheralsPlusPlus;
+import com.austinv11.peripheralsplusplus.client.RidableTurtleInput;
 import com.austinv11.peripheralsplusplus.network.RidableTurtlePacket;
 import com.austinv11.peripheralsplusplus.reference.Config;
 import com.austinv11.peripheralsplusplus.turtles.TurtleRidable;
-import com.austinv11.peripheralsplusplus.utils.TurtleUtils;
+import com.austinv11.peripheralsplusplus.utils.TurtleUtil;
 
 import dan200.computercraft.api.turtle.ITurtleAccess;
 import dan200.computercraft.api.turtle.TurtleAnimation;
@@ -58,17 +54,7 @@ public class EntityRidableTurtle extends Entity {
 
     @Override
     public boolean canBeCollidedWith() {
-        return this.worldObj.isRemote
-            && (Keyboard.isKeyDown(Keyboard.KEY_LCONTROL) || playerIsHoldingRideEnablingItem());
-    }
-
-    private boolean playerIsHoldingRideEnablingItem() {
-        if (!this.worldObj.isRemote) {
-            return false;
-        }
-        ItemStack item = Minecraft.getMinecraft().thePlayer.getHeldItem();
-        return item != null && (item.isItemEqual(new ItemStack(Items.carrot_on_a_stick))
-            || item.isItemEqual(new ItemStack(Items.stick)));
+        return this.worldObj.isRemote && RidableTurtleInput.wantsToRide();
     }
 
     @Override
@@ -98,7 +84,7 @@ public class EntityRidableTurtle extends Entity {
     private void checkRemove() {
         if (turtleLastPos != null) {
             TileEntity turtleTile = this.worldObj.getTileEntity(turtleLastPos[0], turtleLastPos[1], turtleLastPos[2]);
-            this.turtle = TurtleUtils.getTurtle(turtleTile);
+            this.turtle = TurtleUtil.getTurtle(turtleTile);
             turtleLastPos = null;
         }
         if (!this.worldObj.isRemote && ((turtle == null || !isTurleInWorld()) || !turtleHasUpgrade())) {
@@ -240,40 +226,13 @@ public class EntityRidableTurtle extends Entity {
     }
 
     private void checkPlayerMovementRequest() {
-        if (this.worldObj.isRemote && this.riddenByEntity != null
-            && this.riddenByEntity == Minecraft.getMinecraft().thePlayer) {
-            if (Keyboard.isKeyDown(Keyboard.KEY_W)) { // TODO Forge keybinds
-                PeripheralsPlusPlus.NETWORK.sendToServer(
-                    new RidableTurtlePacket(
-                        this.getEntityId(),
-                        RidableTurtlePacket.MovementCode.FORWARD.code,
-                        this.dimension));
-            } else if (Keyboard.isKeyDown(Keyboard.KEY_D)) {
-                PeripheralsPlusPlus.NETWORK.sendToServer(
-                    new RidableTurtlePacket(
-                        this.getEntityId(),
-                        RidableTurtlePacket.MovementCode.TURN_RIGHT.code,
-                        this.dimension));
-            } else if (Keyboard.isKeyDown(Keyboard.KEY_A)) {
-                PeripheralsPlusPlus.NETWORK.sendToServer(
-                    new RidableTurtlePacket(
-                        this.getEntityId(),
-                        RidableTurtlePacket.MovementCode.TURN_LEFT.code,
-                        this.dimension));
-            } else if (Keyboard.isKeyDown(Keyboard.KEY_S)) {
-                PeripheralsPlusPlus.NETWORK.sendToServer(
-                    new RidableTurtlePacket(
-                        this.getEntityId(),
-                        RidableTurtlePacket.MovementCode.DESCEND.code,
-                        this.dimension));
-            } else if (Keyboard.isKeyDown(Keyboard.KEY_X)) {
-                PeripheralsPlusPlus.NETWORK.sendToServer(
-                    new RidableTurtlePacket(
-                        this.getEntityId(),
-                        RidableTurtlePacket.MovementCode.ASCEND.code,
-                        this.dimension));
-            }
-        }
+        if (!this.worldObj.isRemote) return;
+        // The whole client block lives in a @SideOnly class, so the dedicated server never links LWJGL or
+        // net.minecraft.client (CODE_REVIEW.md section 5.32).
+        RidableTurtlePacket.MovementCode movement = RidableTurtleInput.requestedMovement(this.riddenByEntity);
+        if (movement == null) return;
+        PeripheralsPlusPlus.NETWORK
+            .sendToServer(new RidableTurtlePacket(this.getEntityId(), movement.code, this.dimension));
     }
 
     public void setTurtle(ITurtleAccess turtle) {

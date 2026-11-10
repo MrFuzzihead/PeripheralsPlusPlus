@@ -17,8 +17,9 @@ import net.minecraft.util.Facing;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.Constants;
 
+import com.austinv11.peripheralsplusplus.lua.LuaArgs;
 import com.austinv11.peripheralsplusplus.reference.Config;
-import com.austinv11.peripheralsplusplus.utils.TurtleUtils;
+import com.austinv11.peripheralsplusplus.utils.TurtleUtil;
 
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Loader;
@@ -31,16 +32,11 @@ import dan200.computercraft.api.turtle.ITurtleAccess;
 public class TileEntityTeleporter extends MountedTileEntity {
 
     public static String publicName = "teleporter";
-    private String name = "tileEntityTeleporter";
     public Stack<LinkData> links = new Stack<LinkData>();
     public String tag = null;
 
     public TileEntityTeleporter() {
         super();
-    }
-
-    public String getName() {
-        return name;
     }
 
     public int getMaxLinks() {
@@ -52,7 +48,10 @@ public class TileEntityTeleporter extends MountedTileEntity {
         super.readFromNBT(nbttagcompound);
         if (nbttagcompound.hasKey("tTag")) tag = nbttagcompound.getString("tTag");
         NBTTagList links = nbttagcompound.getTagList("links", Constants.NBT.TAG_COMPOUND);
-        for (int i = 0; i < links.tagCount(); i++) {
+        // Clear first: appending to the previous contents duplicated every link on each chunk reload, and addLink
+        // then threw the new link away (CODE_REVIEW.md section 4.12).
+        this.links.clear();
+        for (int i = 0; i < links.tagCount() && this.links.size() < getMaxLinks(); i++) {
             NBTTagCompound link = links.getCompoundTagAt(i);
             if (link.hasKey("linkX") && link.hasKey("linkY") && link.hasKey("linkZ") && link.hasKey("linkDim")) {
                 this.links.add(
@@ -90,19 +89,22 @@ public class TileEntityTeleporter extends MountedTileEntity {
         return publicName;
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "teleport", "tp", "getLinks", "setName" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "teleport", "tp", "getLinks", "setName" };
+        return METHODS;
     }
 
     @Override
-    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] arguments)
+    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] rawArguments)
         throws LuaException, InterruptedException {
         if (!Config.enableTurtleTeleporter) throw new LuaException("Turtle teleporters have been disabled");
+        LuaArgs arguments = LuaArgs.of(rawArguments);
         if (method == 0 || method == 1) {
-            if (arguments.length > 0 && !(arguments[0] instanceof Double))
-                throw new LuaException("Bad argument #1 (expected number)");
-            int index = arguments.length > 0 ? (int) Math.floor((Double) arguments[0]) - 1 : 0;
+            // Lua link numbers start at 1.
+            int index = arguments.integer(0, 1) - 1;
             if (index < 0 || index >= getMaxLinks())
                 throw new LuaException("Bad link " + (index + 1) + " (expected 1-" + getMaxLinks() + ")");
             if (index >= links.size()) throw new LuaException("No such link");
@@ -112,7 +114,7 @@ public class TileEntityTeleporter extends MountedTileEntity {
                 xCoord + Facing.offsetsXForSide[getBlockMetadata()],
                 yCoord + Facing.offsetsYForSide[getBlockMetadata()],
                 zCoord + Facing.offsetsZForSide[getBlockMetadata()]);
-            if (TurtleUtils.getTurtle(te) == null) throw new LuaException("No turtle in front");
+            if (TurtleUtil.getTurtle(te) == null) throw new LuaException("No turtle in front");
             World destWorld = MinecraftServer.getServer()
                 .worldServerForDimension(link.linkDim);
             if (destWorld == null) throw new LuaException("Destination world missing");
@@ -132,7 +134,7 @@ public class TileEntityTeleporter extends MountedTileEntity {
             int xdif = Math.abs(xCoord - link.link.posX);
             int ydif = Math.abs(yCoord - link.link.posY);
             int zdif = Math.abs(zCoord - link.link.posZ);
-            ITurtleAccess turtle = TurtleUtils.getTurtle(te);
+            ITurtleAccess turtle = TurtleUtil.getTurtle(te);
             if (turtle == null) throw new LuaException("No turtle in front");
             if (!turtle.consumeFuel(
                 Math.abs(
@@ -142,21 +144,18 @@ public class TileEntityTeleporter extends MountedTileEntity {
                             * Config.teleporterPenalty))))
                 throw new LuaException("Not enough fuel");
             boolean result = turtle.teleportTo(destWorld, linkToX, linkToY, linkToZ);
-            destWorld.markBlockForUpdate(linkToX, linkToY, linkToZ);
-            worldObj.markBlockForUpdate(
-                xCoord + Facing.offsetsXForSide[getBlockMetadata()],
-                yCoord + Facing.offsetsYForSide[getBlockMetadata()],
-                zCoord + Facing.offsetsZForSide[getBlockMetadata()]);
-            destWorld.notifyBlockChange(linkToX, linkToY, linkToZ, te.blockType);
-            worldObj.notifyBlockChange(
-                xCoord + Facing.offsetsXForSide[getBlockMetadata()],
-                yCoord + Facing.offsetsYForSide[getBlockMetadata()],
-                zCoord + Facing.offsetsZForSide[getBlockMetadata()],
-                null);
             if (result) {
-                // int flag = worldObj.provider.dimensionId != destWorld.provider.dimensionId ? 1 : 0;
-                // onTeleport((byte)flag);TODO
-                // teleporter.onTeleport((byte)flag);
+                destWorld.markBlockForUpdate(linkToX, linkToY, linkToZ);
+                destWorld.notifyBlockChange(linkToX, linkToY, linkToZ, destWorld.getBlock(linkToX, linkToY, linkToZ));
+                worldObj.markBlockForUpdate(
+                    xCoord + Facing.offsetsXForSide[getBlockMetadata()],
+                    yCoord + Facing.offsetsYForSide[getBlockMetadata()],
+                    zCoord + Facing.offsetsZForSide[getBlockMetadata()]);
+                worldObj.notifyBlockChange(
+                    xCoord + Facing.offsetsXForSide[getBlockMetadata()],
+                    yCoord + Facing.offsetsYForSide[getBlockMetadata()],
+                    zCoord + Facing.offsetsZForSide[getBlockMetadata()],
+                    null);
             }
             return new Object[] { result };
         } else if (method == 2) {
@@ -167,15 +166,15 @@ public class TileEntityTeleporter extends MountedTileEntity {
                 map2.put("x", links.get(i).link.posX);
                 map2.put("y", links.get(i).link.posY);
                 map2.put("z", links.get(i).link.posZ);
-                map2.put("name", name);
-                map1.put(i, map2.clone());
+                map2.put("name", tag);
+                // Lua tables are 1-based everywhere else in this mod; getLinks used to start at 0 while
+                // teleport(index) was 1-based (CODE_REVIEW.md section 4.12).
+                map1.put(i + 1, map2.clone());
             }
             return new Object[] { map1 };
         } else if (method == 3) {
-            if (!(arguments.length >= 1) || !(arguments[0] instanceof String))
-                throw new LuaException("Bad argument #1 (expected string)");
-            this.name = (String) arguments[0];
-            return new Object[] { name };
+            this.tag = arguments.string(0);
+            return new Object[] { tag };
         }
         return new Object[0];
     }
@@ -203,8 +202,8 @@ public class TileEntityTeleporter extends MountedTileEntity {
     }
 
     @Override
-    public boolean equals(IPeripheral other) {// FIXME idk what I'm doing
-        return (other == this);
+    public boolean equals(IPeripheral other) {
+        return this == other;
     }
 
     public void blockActivated(EntityPlayer player) {
@@ -308,9 +307,18 @@ public class TileEntityTeleporter extends MountedTileEntity {
         }
     }
 
+    /**
+     * Adds a link, keeping the oldest one when the teleporter is already at {@link #getMaxLinks()}.
+     *
+     * @param linkDim the dimension of the target teleporter
+     * @param link    the target teleporter's position
+     * @return the number of links after the call
+     */
     public int addLink(int linkDim, ChunkCoordinates link) {
+        // The old `while (size > max) pop()` popped the link that had just been pushed, so adding a second link
+        // silently did nothing.
+        while (!links.isEmpty() && links.size() >= getMaxLinks()) links.remove(0);
         links.add(new LinkData(linkDim, link));
-        while (links.size() > getMaxLinks()) links.pop();
         return links.size();
     }
 

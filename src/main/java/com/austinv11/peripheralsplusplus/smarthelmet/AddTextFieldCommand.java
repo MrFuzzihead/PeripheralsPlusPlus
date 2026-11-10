@@ -51,6 +51,6 @@ public class AddTextFieldCommand extends HelmetCommand {
         tagCompound.setInteger("y", y);
         tagCompound.setInteger("width", width);
         tagCompound.setInteger("height", height);
-        tagCompound.setString("message", message);
+        writeString(tagCompound, "message", message);
     }
 }

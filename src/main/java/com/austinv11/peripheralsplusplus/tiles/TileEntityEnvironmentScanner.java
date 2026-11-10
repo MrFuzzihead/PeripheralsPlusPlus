@@ -1,6 +1,7 @@
 package com.austinv11.peripheralsplusplus.tiles;
 
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.world.biome.BiomeGenBase;
 
 import com.austinv11.peripheralsplusplus.reference.Config;
 
@@ -13,7 +14,6 @@ import dan200.computercraft.api.turtle.ITurtleAccess;
 public class TileEntityEnvironmentScanner extends MountedTileEntity {
 
     public static String publicName = "environmentScanner";
-    private String name = "tileEntityEnvironmentScanner";
     private boolean isRaining = false;
     private String biome;
     private String temp;
@@ -26,10 +26,6 @@ public class TileEntityEnvironmentScanner extends MountedTileEntity {
 
     public TileEntityEnvironmentScanner(ITurtleAccess turtle) {
         this.turtle = turtle;
-    }
-
-    public String getName() {
-        return name;
     }
 
     @Override
@@ -46,16 +42,19 @@ public class TileEntityEnvironmentScanner extends MountedTileEntity {
     public void updateEntity() {
         if (worldObj != null) {
             isRaining = worldObj.isRaining();
-            biome = worldObj.getBiomeGenForCoords(xCoord, zCoord).biomeName;
-            temp = worldObj.getBiomeGenForCoords(xCoord, zCoord)
-                .getTempCategory()
-                .name();
-            isSnow = worldObj.getBiomeGenForCoords(xCoord, zCoord)
-                .getEnableSnow();
+            // One lookup per tick, not three (CODE_REVIEW.md section 5.23).
+            BiomeGenBase biomeGen = worldObj.getBiomeGenForCoords(xCoord, zCoord);
+            if (biomeGen != null) {
+                biome = biomeGen.biomeName;
+                temp = biomeGen.getTempCategory()
+                    .name();
+                isSnow = biomeGen.getEnableSnow();
+            }
         }
         if (turtle != null) {
             this.setWorldObj(turtle.getWorld());
             this.xCoord = turtle.getPosition().posX;
+            this.yCoord = turtle.getPosition().posY;
             this.zCoord = turtle.getPosition().posZ;
         }
     }
@@ -65,9 +64,15 @@ public class TileEntityEnvironmentScanner extends MountedTileEntity {
         return publicName;
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    // getTemperature is kept as an alias for getTemp: the bundled temperature.lua calls it, and players' saved
+    // programs may too.
+    private static final String[] METHODS = new String[] { "isRaining", "getBiome", "getTemp", "getTemperature",
+        "isSnow" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "isRaining", "getBiome", "getTemperature", "getTemp", "isSnow" };
+        return METHODS;
     }
 
     @Override
@@ -90,6 +95,6 @@ public class TileEntityEnvironmentScanner extends MountedTileEntity {
 
     @Override
     public boolean equals(IPeripheral other) {
-        return (this == other);
+        return this == other;
     }
 }

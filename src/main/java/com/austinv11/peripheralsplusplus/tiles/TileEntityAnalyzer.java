@@ -18,8 +18,6 @@ import forestry.api.genetics.ISpeciesRoot;
 
 public abstract class TileEntityAnalyzer extends MountedTileEntityInventory {
 
-    private String name = "tileEntityAnalyzer";
-
     public TileEntityAnalyzer() {
         super();
         this.invName = "Analyzer";
@@ -28,10 +26,6 @@ public abstract class TileEntityAnalyzer extends MountedTileEntityInventory {
     @Override
     public int getSize() {
         return 1;
-    }
-
-    public String getName() {
-        return name;
     }
 
     public abstract String getPublicName();
@@ -51,9 +45,12 @@ public abstract class TileEntityAnalyzer extends MountedTileEntityInventory {
         return getPublicName();
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "analyze", "isMember" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "analyze", "isMember" };
+        return METHODS;
     }
 
     @Override
@@ -61,15 +58,19 @@ public abstract class TileEntityAnalyzer extends MountedTileEntityInventory {
         throws LuaException, InterruptedException {
         if (!Config.enableAnalyzers) throw new LuaException("Analyzers have been disabled");
         switch (method) {
-            case 0:
-                ISpeciesRoot root = getRoot();
+            case 0: {
+                // Check the slot first: resolving the species root is a Forestry registry lookup, and there is no
+                // point doing it for an empty analyzer.
                 ItemStack stack = getStackInSlot(0);
-                if (stack == null || !root.isMember(stack)) return new Object[] { false };
+                if (stack == null) return new Object[] { false };
+                ISpeciesRoot root = getRoot();
+                if (!root.isMember(stack)) return new Object[] { false };
                 IIndividual individual = root.getMember(stack);
                 if (!individual.isAnalyzed()) return new Object[] { null };
                 HashMap<String, Object> ret = new HashMap<String, Object>();
                 addGenome(stack, individual.getGenome(), ret);
                 return new Object[] { ret };
+            }
             case 1:
                 ItemStack specimen = getStackInSlot(0);
                 if (specimen == null || !getRoot().isMember(specimen)) return new Object[] { false };
@@ -80,7 +81,7 @@ public abstract class TileEntityAnalyzer extends MountedTileEntityInventory {
 
     @Override
     public boolean equals(IPeripheral other) {
-        return (this == other);
+        return this == other;
     }
 
     protected ISpeciesRoot getRoot() {

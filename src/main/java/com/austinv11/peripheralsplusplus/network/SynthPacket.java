@@ -32,7 +32,7 @@ public class SynthPacket implements IMessage {
     }
 
     public SynthPacket(String text, String voice, Float pitch, Float pitchRange, Float pitchShift, Float rate,
-        Float volume, int x, int y, int z, int world, TurtleSide side) {
+        Float volume, int x, int y, int z, TurtleSide side) {
         this.text = text;
         this.voice = voice;
         this.pitch = pitch;
@@ -57,8 +57,8 @@ public class SynthPacket implements IMessage {
             .equals("null") ? null : Float.parseFloat(tag.getString("pitchRange"));
         pitchShift = tag.getString("pitchShift")
             .equals("null") ? null : Float.parseFloat(tag.getString("pitchShift"));
-        rate = tag.getString("pitch")
-            .equals("null") ? null : Float.parseFloat(tag.getString("pitch"));
+        rate = tag.getString("rate")
+            .equals("null") ? null : Float.parseFloat(tag.getString("rate"));
         volume = tag.getString("volume")
             .equals("null") ? null : Float.parseFloat(tag.getString("volume"));
         x = tag.getInteger("x");
@@ -113,7 +113,7 @@ public class SynthPacket implements IMessage {
                     if (message.pitchRange != null) voice.setPitchRange(message.pitchRange);
                     if (message.pitchShift != null) voice.setPitchShift(message.pitchShift);
                     if (message.rate != null) voice.setRate(message.rate);
-                    if (message.volume != null) voice.setPitch(message.volume);
+                    if (message.volume != null) voice.setVolume(message.volume);
                     voice.speak(message.text);
                     synchronized (this) {
                         PeripheralsPlusPlus.NETWORK.sendToServer(
@@ -126,7 +126,7 @@ public class SynthPacket implements IMessage {
                                 message.side));
                     }
                 } catch (Exception e) {
-                    e.printStackTrace();
+                    PeripheralsPlusPlus.LOGGER.error("Unable to synthesise speech: " + e.getMessage());
                 }
             }
         }
