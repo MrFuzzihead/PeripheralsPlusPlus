@@ -4,21 +4,32 @@ import java.util.HashSet;
 import java.util.Set;
 
 import net.minecraft.block.Block;
+import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.init.Blocks;
+import net.minecraft.init.Items;
+import net.minecraft.inventory.Container;
+import net.minecraft.inventory.IInventory;
+import net.minecraft.inventory.InventoryCrafting;
 import net.minecraft.item.Item;
+import net.minecraft.item.ItemStack;
 import net.minecraft.tileentity.TileEntity;
 import net.minecraft.world.World;
 import net.minecraft.world.WorldServer;
 import net.minecraftforge.common.DimensionManager;
+import net.minecraftforge.oredict.OreDictionary;
 
 import com.austinv11.peripheralsplusplus.init.ModBlocks;
 import com.austinv11.peripheralsplusplus.init.ModItems;
 import com.austinv11.peripheralsplusplus.mount.DynamicMount;
+import com.austinv11.peripheralsplusplus.recipe.ContainerRecipe;
 import com.austinv11.peripheralsplusplus.reference.Config;
 import com.austinv11.peripheralsplusplus.reference.Reference;
 import com.austinv11.peripheralsplusplus.tiles.TileEntityChatBox;
+import com.austinv11.peripheralsplusplus.tiles.TileEntityInteractiveSorter;
 import com.austinv11.peripheralsplusplus.tiles.TileEntitySpeaker;
+import com.austinv11.peripheralsplusplus.utils.ChatUtil;
 import com.austinv11.peripheralsplusplus.utils.IPlusPlusPeripheral;
+import com.austinv11.peripheralsplusplus.utils.Util;
 
 import dan200.computercraft.api.peripheral.IPeripheral;
 
@@ -56,6 +67,11 @@ public final class ServerGameTests {
         checkProviderIgnoresNonPeripheralBlocks();
         checkDocsMountIsPerType();
         checkPeripheralContainerNbtRoundTrip();
+        checkOreDictionaryComparison();
+        checkItemRegistryNames();
+        checkSorterMovesExactlyTheRequestedAmount();
+        checkChatBoxFormattingInGame();
+        checkContainerRecipe();
 
         System.out.println("[PPP-GAMETEST] " + (checks - failures) + "/" + checks + " checks passed");
         return failures;
@@ -204,6 +220,179 @@ public final class ServerGameTests {
             check("container lists an (empty) peripheral table", listed.length == 1);
         } catch (Exception e) {
             check("container lists an (empty) peripheral table: " + e, false);
+        }
+        world.setBlockToAir(x, y, z);
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+    // Ore dictionary: Item.itemRegistry and OreDictionary cannot be bootstrapped outside FML, so Util.compare and
+    // Util.getEntries are asserted here rather than in src/test.
+    // ---------------------------------------------------------------------------------------------------------
+
+    private static void checkOreDictionaryComparison() {
+        ItemStack iron = new ItemStack(Items.iron_ingot);
+        ItemStack gold = new ItemStack(Items.gold_ingot);
+        ItemStack stone = new ItemStack(Blocks.stone);
+
+        check("Util.compare(iron, iron)", Util.compare(iron, new ItemStack(Items.iron_ingot)));
+        check("Util.compare(iron, gold) is false", !Util.compare(iron, gold));
+        check("Util.compare(iron, stone) is false", !Util.compare(iron, stone));
+        check("Util.compare(null, iron) is false", !Util.compare(null, iron));
+
+        check(
+            "Util.getEntries is 1-based",
+            Util.getEntries(iron)
+                .containsKey(1));
+        check(
+            "Util.getEntries counts every ore id",
+            Util.getEntries(iron)
+                .size() == OreDictionary.getOreIDs(iron).length);
+        check(
+            "Util.getEntries never uses key 0",
+            !Util.getEntries(iron)
+                .containsKey(0));
+        check("the ore dictionary name for iron is registered", OreDictionary.getOreIDs(iron).length > 0);
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+    // Item registry names
+    // ---------------------------------------------------------------------------------------------------------
+
+    private static void checkItemRegistryNames() {
+        Item[] items = { ModItems.feederUpgrade, ModItems.tank, ModItems.smartHelmet, ModItems.nanoSwarm,
+            ModItems.chunkLoaderUpgrade, ModItems.permCard, ModItems.resupplyUpgrade, ModItems.motionDetector };
+        for (Item item : items) {
+            String name = Item.itemRegistry.getNameForObject(item);
+            check("item has a registry name: " + name, name != null && name.startsWith("PeripheralsPlusPlus:"));
+            check("item registry round-trips: " + name, name != null && Item.itemRegistry.getObject(name) == item);
+        }
+        check(
+            "a vanilla item still resolves",
+            "minecraft:iron_ingot".equals(Item.itemRegistry.getNameForObject(Items.iron_ingot)));
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+    // Inventory moves against a real chest (the unit tests use a fake inventory)
+    // ---------------------------------------------------------------------------------------------------------
+
+    private static void checkSorterMovesExactlyTheRequestedAmount() {
+        WorldServer world = overworld();
+        if (world == null) return;
+        int x = 0, y = 120, z = 8;
+        world.setBlock(x, y - 1, z, Blocks.stone);
+        world.setBlock(x + 1, y - 1, z, Blocks.stone);
+        world.setBlock(x, y, z, ModBlocks.interactiveSorter);
+        world.setBlock(x + 1, y, z, Blocks.chest);
+
+        TileEntity sorterTile = world.getTileEntity(x, y, z);
+        TileEntity chestTile = world.getTileEntity(x + 1, y, z);
+        check("sorter tile entity exists", sorterTile instanceof TileEntityInteractiveSorter);
+        check("chest tile entity exists", chestTile instanceof IInventory);
+        if (!(sorterTile instanceof TileEntityInteractiveSorter) || !(chestTile instanceof IInventory)) {
+            world.setBlockToAir(x, y, z);
+            world.setBlockToAir(x + 1, y, z);
+            return;
+        }
+
+        TileEntityInteractiveSorter sorter = (TileEntityInteractiveSorter) sorterTile;
+        IInventory chest = (IInventory) chestTile;
+        sorter.setInventorySlotContents(0, new ItemStack(Items.iron_ingot, 10));
+        try {
+            Object[] pushed = sorter.callMethod(null, null, 1, new Object[] { "east", 4.0d });
+            check("sorter push reports success", pushed.length == 1 && Boolean.TRUE.equals(pushed[0]));
+            // The old arithmetic subtracted a clamped *total*, which produced a negative stack size.
+            check(
+                "sorter kept the remainder",
+                sorter.getStackInSlot(0) != null && sorter.getStackInSlot(0).stackSize == 6);
+            check(
+                "chest received exactly four",
+                chest.getStackInSlot(0) != null && chest.getStackInSlot(0).stackSize == 4);
+
+            Object[] pulled = sorter.callMethod(null, null, 2, new Object[] { "east", 2.0d });
+            check("sorter pull reports success", pulled.length == 1 && Boolean.TRUE.equals(pulled[0]));
+            check(
+                "sorter received exactly two",
+                sorter.getStackInSlot(0) != null && sorter.getStackInSlot(0).stackSize == 8);
+            check(
+                "chest kept the remainder",
+                chest.getStackInSlot(0) != null && chest.getStackInSlot(0).stackSize == 2);
+        } catch (Exception e) {
+            check("sorter push/pull without an exception: " + e, false);
+        }
+
+        world.setBlockToAir(x, y, z);
+        world.setBlockToAir(x + 1, y, z);
+        world.setBlockToAir(x, y - 1, z);
+        world.setBlockToAir(x + 1, y - 1, z);
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+    // Chat formatting with a real coordinate prefix
+    // ---------------------------------------------------------------------------------------------------------
+
+    // ---------------------------------------------------------------------------------------------------------
+    // Container crafting recipe (CODE_REVIEW.md section 3.2: it could never match)
+    // ---------------------------------------------------------------------------------------------------------
+
+    private static void checkContainerRecipe() {
+        WorldServer world = overworld();
+        if (world == null) return;
+
+        InventoryCrafting grid = new InventoryCrafting(new Container() {
+
+            @Override
+            public boolean canInteractWith(EntityPlayer player) {
+                return true;
+            }
+        }, 3, 3);
+
+        ContainerRecipe recipe = new ContainerRecipe();
+        check("an empty grid does not match", !recipe.matches(grid, world));
+
+        grid.setInventorySlotContents(0, new ItemStack(ModBlocks.peripheralContainer));
+        check("a lone container does not match", !recipe.matches(grid, world));
+
+        grid.setInventorySlotContents(1, new ItemStack(Blocks.stone));
+        check("a container plus a non-peripheral block does not match", !recipe.matches(grid, world));
+
+        grid.setInventorySlotContents(1, new ItemStack(ModBlocks.chatBox));
+        check("a container plus a peripheral matches", recipe.matches(grid, world));
+
+        ItemStack result = recipe.getCraftingResult(grid);
+        check("the result is a peripheral container", result != null && result.getItem() != null);
+        check(
+            "the result records the contained peripheral",
+            result != null && result.stackTagCompound != null
+                && result.stackTagCompound.getIntArray("ids").length == 1);
+
+        grid.setInventorySlotContents(2, new ItemStack(ModBlocks.peripheralContainer));
+        check("two containers do not match", !recipe.matches(grid, world));
+
+        // The antenna is excluded on purpose.
+        grid.setInventorySlotContents(2, null);
+        grid.setInventorySlotContents(1, new ItemStack(ModBlocks.antenna));
+        check("an excluded peripheral does not match", !recipe.matches(grid, world));
+    }
+
+    private static void checkChatBoxFormattingInGame() {
+        WorldServer world = overworld();
+        if (world == null) return;
+        int x = 4, y = 120, z = 8;
+        world.setBlock(x, y, z, ModBlocks.chatBox);
+        TileEntity tile = world.getTileEntity(x, y, z);
+        check("chat box tile entity exists", tile instanceof TileEntityChatBox);
+        if (tile instanceof TileEntityChatBox) {
+            String prefix = ChatUtil.getCoordsPrefix(tile);
+            check("coordinate prefix matches the block", prefix.equals("[#" + x + "," + y + "," + z + "] "));
+            check(
+                "formatMessage prepends the coordinate prefix",
+                ChatUtil.formatMessage("hi", "bot", true, prefix)
+                    .equals(prefix + "hi"));
+            check(
+                "formatMessage prefers the label when logging is off",
+                ChatUtil.formatMessage("hi", "bot", false, prefix)
+                    .equals("[bot] hi"));
+            check("clampRange caps at the configured maximum", ChatUtil.clampRange(1000000.0d, 64.0d) == 64.0d);
         }
         world.setBlockToAir(x, y, z);
     }

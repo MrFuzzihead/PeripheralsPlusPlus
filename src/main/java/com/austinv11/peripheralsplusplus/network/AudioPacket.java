@@ -26,7 +26,7 @@ public class AudioPacket implements IMessage {
 
     public AudioPacket() {}
 
-    public AudioPacket(String lang, String text, int x, int y, int z, int world, TurtleSide side) {
+    public AudioPacket(String lang, String text, int x, int y, int z, TurtleSide side) {
         this.lang = lang;
         this.text = text;
         this.x = x;

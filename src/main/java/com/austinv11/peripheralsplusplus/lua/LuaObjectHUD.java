@@ -54,6 +54,7 @@ public class LuaObjectHUD implements ILuaObject {
      * @return the live stack
      */
     private static Stack<String> messagesFor(String name) {
+        if (name == null) name = "";
         Stack<String> existing = MessageCommand.messageStacks.get(name);
         if (existing != null) return existing;
         Stack<String> created = new Stack<String>();

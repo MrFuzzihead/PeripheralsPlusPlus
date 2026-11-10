@@ -39,7 +39,6 @@ public class PacketCodecTest {
             10,
             64,
             -30,
-            0,
             TurtleSide.Left);
 
         ByteBuf buf = Unpooled.buffer();
@@ -63,7 +62,7 @@ public class PacketCodecTest {
 
     @Test
     public void synthPacketPreservesNulls() {
-        SynthPacket out = new SynthPacket("text", "kevin16", null, null, null, null, null, 0, 0, 0, 0, null);
+        SynthPacket out = new SynthPacket("text", "kevin16", null, null, null, null, null, 0, 0, 0, null);
         ByteBuf buf = Unpooled.buffer();
         out.toBytes(buf);
         SynthPacket in = new SynthPacket();
@@ -78,7 +77,7 @@ public class PacketCodecTest {
 
     @Test
     public void audioPacketRoundTrips() {
-        AudioPacket out = new AudioPacket("en", "a duck", 1, 2, 3, 0, TurtleSide.Right);
+        AudioPacket out = new AudioPacket("en", "a duck", 1, 2, 3, TurtleSide.Right);
         ByteBuf buf = Unpooled.buffer();
         out.toBytes(buf);
         AudioPacket in = new AudioPacket();
@@ -93,7 +92,7 @@ public class PacketCodecTest {
 
     @Test
     public void audioPacketToleratesANullSide() {
-        AudioPacket out = new AudioPacket("en", "text", 0, 0, 0, 0, null);
+        AudioPacket out = new AudioPacket("en", "text", 0, 0, 0, null);
         ByteBuf buf = Unpooled.buffer();
         out.toBytes(buf);
         AudioPacket in = new AudioPacket();

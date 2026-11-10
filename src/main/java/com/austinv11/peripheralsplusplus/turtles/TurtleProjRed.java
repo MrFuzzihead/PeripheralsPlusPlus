@@ -4,6 +4,7 @@ import java.util.List;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.SharedMonsterAttributes;
+import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.util.DamageSource;
 import net.minecraft.util.Facing;
@@ -39,9 +40,16 @@ public abstract class TurtleProjRed extends TurtleDropCollector implements ITurt
         return getProjRedTool(getToolType(), getToolMaterial());
     }
 
+    /**
+     * @param toolType     the tool kind
+     * @param toolMaterial the ProjectRed material
+     * @return the tool, or {@code null} when ProjectRed does not ship it
+     */
     public static ItemStack getProjRedTool(ToolType toolType, ToolMaterial toolMaterial) {
         String name = "projectred.exploration." + toolType.getName() + toolMaterial.getName();
-        return new ItemStack(GameRegistry.findItem(ModIds.ProjectRed_Exploration, name));
+        Item item = GameRegistry.findItem(ModIds.ProjectRed_Exploration, name);
+        // new ItemStack(null) produces a stack whose getItem() is null, which NPEs in getIcon/useTool.
+        return item == null ? null : new ItemStack(item);
     }
 
     @Override
@@ -77,6 +85,7 @@ public abstract class TurtleProjRed extends TurtleDropCollector implements ITurt
         FakeTurtlePlayer player = new FakeTurtlePlayer(turtle);
         switch (verb) {
             case Attack:
+                if (getItem() == null) return TurtleCommandResult.failure("This tool is not installed");
                 List<Entity> entities = TurtleUtil.getEntitiesNearTurtle(turtle, player, direction);
                 Entity ent = TurtleUtil.getClosestEntity(entities, player);
                 if (ent != null) if (ent.canAttackWithItem() && !ent.hitByEntity(player)) {
@@ -90,6 +99,7 @@ public abstract class TurtleProjRed extends TurtleDropCollector implements ITurt
                 }
                 return TurtleCommandResult.failure();
             case Dig:
+                if (getItem() == null) return TurtleCommandResult.failure("This tool is not installed");
                 if (getToolType() == ToolType.HOE) {
                     int x = turtle.getPosition().posX + Facing.offsetsXForSide[direction];
                     int y = turtle.getPosition().posY + Facing.offsetsYForSide[direction];
@@ -126,8 +136,10 @@ public abstract class TurtleProjRed extends TurtleDropCollector implements ITurt
     @SideOnly(Side.CLIENT)
     @Override
     public IIcon getIcon(ITurtleAccess turtle, TurtleSide side) {
-        return getItem().getItem()
-            .getIconIndex(getItem());
+        ItemStack tool = getItem();
+        return tool == null ? null
+            : tool.getItem()
+                .getIconIndex(tool);
     }
 
     @Override

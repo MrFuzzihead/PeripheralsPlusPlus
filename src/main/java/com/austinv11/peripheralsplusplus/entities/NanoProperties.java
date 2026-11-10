@@ -38,8 +38,12 @@ public class NanoProperties implements IExtendedEntityProperties {
                 // antennaID is null meaning this entity has not yet been associated with any antenna.
             }
 
-            if (TileEntityAntenna.antenna_registry.containsKey(antennaID)) {
-                TileEntityAntenna.antenna_registry.get(antennaID).associatedEntities.add(this.entity);
+            // antenna_registry is a ConcurrentHashMap, which rejects a null key. Before the map was made
+            // thread-safe this silently did nothing for an unassociated entity; now it threw on every chunk load.
+            if (antennaID == null) return;
+            TileEntityAntenna antenna = TileEntityAntenna.antenna_registry.get(antennaID);
+            if (antenna != null && entity != null && !antenna.associatedEntities.contains(entity)) {
+                antenna.associatedEntities.add(entity);
             }
         }
     }

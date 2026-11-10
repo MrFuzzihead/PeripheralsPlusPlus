@@ -32,7 +32,7 @@ public class SynthPacket implements IMessage {
     }
 
     public SynthPacket(String text, String voice, Float pitch, Float pitchRange, Float pitchShift, Float rate,
-        Float volume, int x, int y, int z, int world, TurtleSide side) {
+        Float volume, int x, int y, int z, TurtleSide side) {
         this.text = text;
         this.voice = voice;
         this.pitch = pitch;

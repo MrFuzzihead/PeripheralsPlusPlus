@@ -57,7 +57,7 @@ public class PeripheralRidable extends MountedPeripheral {
     private Object[] up() {
         boolean success;
         try {
-            EntityRidableTurtle ridableTurtleEntity = TurtleRidable.getEntity(turtle);
+            EntityRidableTurtle ridableTurtleEntity = requireEntity(turtle);
             success = ridableTurtleEntity.canMoveUp();
             ridableTurtleEntity.queueAction(RidableTurtlePacket.MovementCode.ASCEND.code);
         } catch (Exception ignore) {
@@ -68,7 +68,7 @@ public class PeripheralRidable extends MountedPeripheral {
 
     private Object[] unmount() {
         try {
-            EntityRidableTurtle ridableTurtleEntity = TurtleRidable.getEntity(turtle);
+            EntityRidableTurtle ridableTurtleEntity = requireEntity(turtle);
             ridableTurtleEntity.riddenByEntity.mountEntity(null);
         } catch (Exception e) {
             return new Object[] { false };
@@ -86,7 +86,7 @@ public class PeripheralRidable extends MountedPeripheral {
             }
         }
         try {
-            EntityRidableTurtle ridableTurtleEntity = TurtleRidable.getEntity(turtle);
+            EntityRidableTurtle ridableTurtleEntity = requireEntity(turtle);
             if (entity == null || ridableTurtleEntity.riddenByEntity != null) return new Object[] { false };
             entity.mountEntity(ridableTurtleEntity);
         } catch (Exception e) {
@@ -98,7 +98,7 @@ public class PeripheralRidable extends MountedPeripheral {
     private Object[] getRidingEntity() {
         EntityRidableTurtle ridableTurtleEntity;
         try {
-            ridableTurtleEntity = TurtleRidable.getEntity(turtle);
+            ridableTurtleEntity = requireEntity(turtle);
         } catch (Exception e) {
             return new Object[0];
         }
@@ -122,6 +122,17 @@ public class PeripheralRidable extends MountedPeripheral {
                         .toString());
         }
         return new Object[] { map };
+    }
+
+    /**
+     * @param turtle the turtle
+     * @return the ridable entity bound to it
+     * @throws LuaException when there is none
+     */
+    private static EntityRidableTurtle requireEntity(ITurtleAccess turtle) throws LuaException {
+        EntityRidableTurtle entity = TurtleRidable.getEntityOrNull(turtle);
+        if (entity == null) throw new LuaException("This turtle has no ridable entity");
+        return entity;
     }
 
     @Override

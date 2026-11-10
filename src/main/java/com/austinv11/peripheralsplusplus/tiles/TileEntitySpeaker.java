@@ -70,7 +70,7 @@ public class TileEntitySpeaker extends MountedTileEntity {
         Object[] audio;
         while ((audio = pendingAudio.poll()) != null) {
             PeripheralsPlusPlus.NETWORK.sendToAllAround(
-                new AudioPacket((String) audio[0], (String) audio[1], xCoord, yCoord, zCoord, id, side),
+                new AudioPacket((String) audio[0], (String) audio[1], xCoord, yCoord, zCoord, side),
                 new NetworkRegistry.TargetPoint(id, xCoord, yCoord, zCoord, (Double) audio[2]));
         }
     }
@@ -156,19 +156,7 @@ public class TileEntitySpeaker extends MountedTileEntity {
 
             if (computer != null) pendingSpeech.put(computer.getID(), text);
             PeripheralsPlusPlus.NETWORK.sendToAllAround(
-                new SynthPacket(
-                    text,
-                    voice,
-                    pitch,
-                    pitchRange,
-                    pitchShift,
-                    rate,
-                    volume,
-                    xCoord,
-                    yCoord,
-                    zCoord,
-                    id,
-                    side),
+                new SynthPacket(text, voice, pitch, pitchRange, pitchShift, rate, volume, xCoord, yCoord, zCoord, side),
                 new NetworkRegistry.TargetPoint(id, xCoord, yCoord, zCoord, range));
 
             if (arguments.length > 8 && (Boolean) arguments[8]) {

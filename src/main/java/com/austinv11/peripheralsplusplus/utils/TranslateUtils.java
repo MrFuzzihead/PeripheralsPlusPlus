@@ -44,13 +44,6 @@ public class TranslateUtils {
             .contains("zh-");
     }
 
-    public static String detectLangName(String text) {
-        return Language.getInstance()
-            .getNameLanguage(
-                Translator.getInstance()
-                    .detect(text));
-    }
-
     public static String detectLangPrefix(String text) {
         return Translator.getInstance()
             .detect(text);

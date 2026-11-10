@@ -4,7 +4,7 @@ import com.austinv11.collectiveframework.minecraft.config.Description;
 
 @com.austinv11.collectiveframework.minecraft.config.Config(
     fileName = "PeripheralsPlusPlus.cfg",
-    exclude = { "enableAPIs", "ENABLE_CONFIG_MESSAGE" })
+    exclude = { "ENABLE_CONFIG_MESSAGE" })
 public class Config {
 
     private static final String ENABLE_CONFIG_MESSAGE = "If disabled, the recipe will be disabled and the current peripherals would cease to work";
@@ -83,7 +83,7 @@ public class Config {
 
     @Description(
         category = "Turtle Teleporters",
-        comment = "Fuel penalty for using a Turtle Teleporter. For example, 1.0 is a 0% penalty, or 2.0 (default) is a 100% penalty")
+        comment = "Fuel penalty for using a Turtle Teleporter. 1.0 means no penalty, 2.0 (the default) doubles the fuel cost")
     public static double teleporterPenalty = 2.0;
 
     @Description(category = "Environment Scanner", comment = ENABLE_CONFIG_MESSAGE)
@@ -105,11 +105,6 @@ public class Config {
         category = "Speaker",
         comment = "Range for the Speaker peripheral's say/tell function. Negative values indicate infinite")
     public static double speechRange = 64;
-
-    @Description(
-        category = "APIs",
-        comment = "This enables additional apis added by this mod, just note that if this is enabled, the *initial* computer startup is lengthened somewhat")
-    public static boolean enableAPIs = true;
 
     @Description(category = "Peripheral Container", comment = ENABLE_CONFIG_MESSAGE)
     public static boolean enablePeripheralContainer = true;

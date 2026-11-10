@@ -248,38 +248,7 @@ public class PeripheralsPlusPlus {
     }
 
     private void registerRedPowerLikeUpgrades() {
-
-        // Better solution but don't keeps old ids
-
-        // int i = 0;
-        // for (final ToolType type : ToolType.values()) {
-        // if (type == ToolType.UNKNOWN) continue;
-        //
-        // for (final ToolMaterial material : ToolMaterial.values()) {
-        // if (material == ToolMaterial.UNKNOWN) continue;
-        //
-        // final int id = i++;
-        // registerUpgrade(new TurtleProjRed() {
-        //
-        // @Override
-        // public ToolType getToolType() {
-        // return type;
-        // }
-        //
-        // @Override
-        // public ToolMaterial getToolMaterial() {
-        // return material;
-        // }
-        //
-        // @Override
-        // public int getID() {
-        // return id;
-        // }
-        // });
-        // }
-        // }
-
-        // Not as good as the first but better than yours and it keeps the same ids as before
+        // Ids are base + index so saved worlds keep the ids they had before (see ReferenceTest).
         if (Loader.isModLoaded(ModIds.ProjectRed_Exploration)) {
             int i = 0;
             for (final TurtleProjRed.ToolMaterial material : new TurtleProjRed.ToolMaterial[] {

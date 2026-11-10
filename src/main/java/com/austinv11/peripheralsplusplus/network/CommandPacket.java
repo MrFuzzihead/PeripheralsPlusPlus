@@ -109,6 +109,9 @@ public class CommandPacket implements IMessage {
                 }
             }
             for (HelmetCommand command : message.commands) if (command != null) commands.offer(command);
+            // A packet with no uuid cannot belong to a player, and the render stacks are ConcurrentHashMaps, which
+            // reject a null key.
+            if (message.uuid == null) return null;
             if (message.isGui) {
                 GuiHelmet.renderStack.put(message.uuid, commands);
             } else {
