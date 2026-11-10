@@ -1482,3 +1482,71 @@ final-field reflection hack for entities. Recorded here so nobody re-litigates i
 teleporter's link-wand path, `PeripheralXP`'s add/enchant, `TileEntityChatBox`'s listener, the smart-helmet command
 `NBT` bodies and the `TradeHandler` tables — each blocked on an item registry, the ore dictionary or a final field
 rather than on effort. Beyond that, JaCoCo has to run in-game.
+
+## 25. Appendix O — in-game coverage (JaCoCo on `gameTestServer`)
+
+**Goal.** The 158 in-game assertions exercise code the unit tests cannot reach — the recipe table, the container
+craft, the block drop path — but JaCoCo only measured `test`. This attaches the agent to the game and reports the
+result.
+
+**The obstacle, measured.** On-the-fly JaCoCo keys each class on the CRC64 of the class file it instruments. In a
+Forge 1.7.10 dev launch the `LaunchClassLoader` round-trips every class through ASM, so the bytes defined at runtime
+are not the bytes on disk. Comparing the ids in a real `gameTest.exec` against `build/classes/java/main`:
+
+| | |
+|---|---:|
+| classes in the exec | 121 |
+| ids matching the on-disk class | **1** (`EarlyMixinsLoader`, loaded before the transformers engage) |
+| ids differing | **112** |
+| not on disk at all (lambdas) | 8 |
+
+So merging `gameTest.exec` into `jacocoTestReport` is impossible: JaCoCo drops the data with "Classes in bundle do not
+match with execution data". The report therefore stays on `test.exec` only.
+
+**The fix.** GTNH's boot layer (RFB) already writes every class it defines to
+`<run dir>/RFB_CLASS_DUMP/<loader>/`, *after* transformation. Those are the bytes JaCoCo saw. Verified by computing
+the CRC64 of the dumped `SmokeTestHook.class` and comparing it with the id in the exec file: both
+`f1de9f1ef4beeb47`.
+
+`jacocoGameTestReport` (in `addon.gradle.kts`) therefore reports `gameTest.exec` against
+`run/server/RFB_CLASS_DUMP/Launch`, filtered to this mod's package (minus `client`, `mixins`, `thirdparty` and the
+in-game test mod itself). `gameTestServer` finalises with it, so one command gives both the pass/fail result and the
+in-game number:
+
+```sh
+./gradlew gameTestServer          # boots a server, runs 158 assertions, writes the report
+# build/reports/jacoco/gameTest/html/index.html
+```
+
+The agent attachment itself is a `CommandLineArgumentProvider` with the agent jar as a `@Classpath` input (a plain
+`configurations.getByName("jacocoAgent")` at configuration time breaks the GTNH plugin's repository setup, and
+resolving it in `projectsEvaluated` is rejected by Gradle 9). The `jacocoAgent` artifact is the JaCoCo *distribution*
+jar, which has no `Premain-Class`; the real agent is the `jacocoagent.jar` inside it, which Gradle's own integration
+unpacks too.
+
+**The numbers.**
+
+| Run | Line coverage | Notes |
+|---|---:|---|
+| Unit tests (`./gradlew test`) | 2426 / 6221 = **39.0 %** | 223 classes |
+| In-game (`./gradlew gameTestServer`) | 883 / 3819 = **23.1 %** | 151 classes actually loaded |
+| **Both (union bound)** | 2875 / 6221 = **46.2 %** | a line counts as covered if either run covered it |
+
+The union is a bound, not an exact figure: the two runs instrument different class sets, so it takes the per-class
+minimum of the two uncovered counts.
+
+**What the in-game run adds that the unit tests never could:**
+
+| Class | Lines newly covered | Why headless could not |
+|---|---:|---|
+| `Recipes` | +116 | `ShapedOreRecipe` resolves ore-dictionary entries |
+| `ContainerRecipe` | +56 | needs the block registry |
+| `ModItems` | +17 | same |
+| `ItemSmartHelmet` | +8 | its constructor needs the armour/rendering registries |
+| `BlockContainerPPP` | +24 | `dropItems` needs a real tile entity with an inventory |
+| `PropertiesHandler`, `PeripheralChunkLoader$LoaderHandler` | +10 | event/FML lifecycle |
+
+**Ceiling, now measured rather than estimated.** 46.2 % is essentially the ~50 % headless figure §23 predicted, and
+the remaining gap is dominated by the entities (`World.provider` is final), `PeripheralTank`/`FluidRegistry`, the ME
+bridge (`AEApi`), and the `TradeHandler` tables — each blocked on a registry or a final field, not on effort. Anything
+past that needs a non-transforming launch, or a per-class union report that JaCoCo cannot produce.

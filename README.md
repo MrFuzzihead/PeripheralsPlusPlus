@@ -53,7 +53,7 @@ toolchain the plain tasks use.
 |---|---|
 | `./gradlew test` | 419 headless JUnit 4 tests (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
 | `./gradlew check` | the above plus Spotless, Checkstyle, the coverage floor and the gameTest compile |
-| `./gradlew gameTestServer` | boots a real dedicated server and runs 158 in-game assertions, then exits with the result |
+| `./gradlew gameTestServer` | boots a real dedicated server, runs 158 in-game assertions, then exits with the result. Also writes an in-game coverage report to `build/reports/jacoco/gameTest/html` |
 | `./gradlew runServer25 -PsmokeTest` | boots a real server, prints `PERIPHERALSPLUSPLUS_SMOKE_TEST_OK` and exits |
 
 The bundled Lua programs are compiled by `LuaScriptsTest` with ComputerCraft's own Lua 5.1 compiler, and every
