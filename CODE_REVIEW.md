@@ -87,7 +87,7 @@ API is byte-identical**; the only changes are:
 | `NOTICE` | licence text |
 
 **Verdict: no code change required.** The `@Mod(dependencies = "...ComputerCraft@[3.3.0,)")` range stays
-correct. Note the range is still `3.3.0` even though the build is now pinned to `3.3.1` — that is fine
+correct (nothing in 3.3.1 is called). Note the range is still `3.3.0` even though the build is now pinned to `3.3.1` — that is fine
 (3.3.0 is genuinely still supported) but the mod metadata in `mcmod.info` declares no version range at all
 (`requiredMods: ["ComputerCraft"]`), which is good enough for FML since `@Mod` wins.
 
@@ -110,6 +110,11 @@ that Peripherals++ depends on:
 | `utils/ArrayUtils#indexOf(Object[],Object)` | Null-safe (`Objects.equals`). | none, but see §3.2. |
 | `CollectiveFramework.SmokeTestHook` (new) | `-PsmokeTest` support. | **Opportunity**: PPP can reuse it (or mirror it) instead of writing its own. §10.5 |
 | `assets/theframework` → `assets/collectiveframework` | asset rename. | none (PPP ships its own assets). |
+
+**Consequence for the dependency range:** the fix in §3.1 uses `SimpleRunnable.startOnce()`, which does not exist in
+1.0.0, so `@Mod(dependencies = "...collectiveframework@[1.0.0,)")` would have thrown `NoSuchMethodError` on an install
+still on 1.0.0. The floor is now `[1.0.1,)`. That is the one hard requirement change in this release: **1.6.0 requires
+CollectiveFramework 1.0.1 or newer** (ComputerCraft 3.3.0 is still supported).
 
 Everything else in CF (`NBTHelper`, `ModIds`, `Colors`, `BlockBase`, `ItemBase`, `IconManager`,
 `ExclusiveSlot`, `ConfigException`, `Config`, `Description`, `TimeProfiler`, `MathUtils`,
