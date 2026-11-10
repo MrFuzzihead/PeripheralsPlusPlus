@@ -47,7 +47,9 @@ jobs:
           test -n "$(ls run/server/logs/*.log 2>/dev/null)" || { echo "no server log was written"; exit 1; }
           grep -h "PERIPHERALSPLUSPLUS_SMOKE_TEST_OK" run/server/logs/*.log
           grep -hq "PERIPHERALSPLUSPLUS_SMOKE_TEST_OK" run/server/logs/*.log
-          grep -hq "Done (" run/server/logs/*.log
+          # Not "Done (": the smoke hook exits at FMLLoadCompleteEvent, before the server prints it. What matters
+          # is that the mod itself finished initialising.
+          grep -hq "All peripherals and turtle upgrades registered!" run/server/logs/*.log
 
       - name: Upload the log
         if: always()

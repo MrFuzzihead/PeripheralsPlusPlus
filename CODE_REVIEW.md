@@ -1596,6 +1596,8 @@ first attempt at this fix silently did nothing) and re-loads its chunk, restorin
 gone. The block was restored 1–2 times per run and the suite then completed 158/158. The count is printed, so a future
 regression in the chunk handling shows up as a number instead of a crash.
 
-Two CI fixes alongside it: `libgl1-mesa-glx` was a transitional package and no longer exists on Ubuntu 24.04
-(`E: Package 'libgl1-mesa-glx' has no installation candidate`), and the game-test marker step now fails loudly when no
-log was written instead of grepping an empty path.
+Three CI fixes alongside it: `libgl1-mesa-glx` was a transitional package and no longer exists on Ubuntu 24.04
+(`E: Package 'libgl1-mesa-glx' has no installation candidate`), the marker steps grepped `ls run/server/logs/*.log |
+head -1`, which is `fml-junk-earlystartup.log` rather than `latest.log`, and the server-smoke job asserted `Done (`,
+which `-PsmokeTest` can never reach because `SmokeTestHook` exits at `FMLLoadCompleteEvent`. All three failed with the
+suites themselves green.
