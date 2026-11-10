@@ -201,7 +201,10 @@ So a computer with two or more PPP peripherals gets (a) one peripheral's script 
 
 **Fix (applied):** the mount is now per-peripheral (`/ppp/<peripheral type>`), `detach()` only unmounts, and
 `DynamicMount` exposes the path it actually used. The docs section of the Lua ROM keeps working because
-`/ppp` still shows one directory per attached peripheral.
+`/ppp` still shows one directory per attached peripheral, and each mount exposes its scripts **at its root**, so
+the paths players already had are unchanged: `/ppp/chatBox/talk.lua`, not `/ppp/chatBox/chatBox/talk.lua`.
+(`DynamicMountTest.theMountedLayoutIsUnchangedForPlayers` pins that, and the game test opens a real computer and
+lists the mount.)
 
 ### 3.4 ✅ `TileEntityMEBridge.getNode()` creates a duplicate AE grid node
 

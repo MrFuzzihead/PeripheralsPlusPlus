@@ -197,11 +197,12 @@ public final class ServerGameTests {
         check("docs mount path is below /ppp", chatBox.startsWith("/ppp/"));
         boolean exists;
         try {
-            exists = new DynamicMount("chatBox").exists("chatBox");
+            // The mount point carries the type, so its scripts are at the mount root.
+            exists = new DynamicMount("chatBox").exists("talk.lua");
         } catch (Exception e) {
             exists = false;
         }
-        check("docs directory exists for the chat box", exists);
+        check("docs scripts are at the mount root", exists);
     }
 
     // ---------------------------------------------------------------------------------------------------------

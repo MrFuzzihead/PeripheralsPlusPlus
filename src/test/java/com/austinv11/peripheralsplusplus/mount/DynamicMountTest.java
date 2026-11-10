@@ -14,11 +14,22 @@ import org.junit.Test;
  * Covers the bundled Lua docs mount.
  *
  * <p>
- * These tests run against the real resources on the test classpath, which is the whole point: the mount silently
- * returns an empty directory when a manifest is missing, and that failure mode is otherwise only visible in game.
+ * These tests run against the real resources on the test classpath, which is the point: the mount silently returns an
+ * empty directory when a manifest is missing, and that failure mode is otherwise only visible in game.
+ * </p>
+ *
+ * <p>
+ * The <em>layout</em> assertions matter as much as the content ones. The mount point carries the peripheral type
+ * ({@code /ppp/chatBox}) and the scripts sit directly at its root, so the documented paths stay
+ * {@code /ppp/<type>/<script>.lua}. An earlier revision of this fix mounted at {@code /ppp/<type>} but also exposed
+ * the type as a directory inside the mount, which silently moved every bundled program to
+ * {@code /ppp/chatBox/chatBox/talk.lua}.
  * </p>
  */
 public class DynamicMountTest {
+
+    private static final String[] DIRECTORIES = { "chatBox", "environmentScanner", "analyzers", "oreDictionary",
+        "barrel", "compass", "feeder", "xp", "speaker", "noteBlock", "peripheralContainer", "antenna", "playerSensor" };
 
     private static String readAll(InputStream stream) throws IOException {
         InputStreamReader reader = new InputStreamReader(stream, StandardCharsets.UTF_8);
@@ -28,6 +39,16 @@ public class DynamicMountTest {
         while ((read = reader.read(buffer)) != -1) builder.append(buffer, 0, read);
         return builder.toString();
     }
+
+    private static List<String> list(DynamicMount mount) throws IOException {
+        List<String> contents = new ArrayList<String>();
+        mount.list("", contents);
+        return contents;
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+    // Mount point and layout
+    // ---------------------------------------------------------------------------------------------------------
 
     @Test
     public void mountPathIsPerPeripheralType() {
@@ -42,58 +63,80 @@ public class DynamicMountTest {
     }
 
     @Test
+    public void theMountedLayoutIsUnchangedForPlayers() {
+        // Mount point + file == the documented path, which is what it was when every peripheral shared /ppp.
+        DynamicMount mount = new DynamicMount("chatBox");
+        Assert.assertEquals("/ppp/chatBox", mount.mountPath(""));
+        Assert.assertEquals("/ppp/chatBox/talk.lua", mount.mountPath("") + "/talk.lua");
+    }
+
+    @Test
     public void directoryIsExposed() {
         Assert.assertEquals("chatBox", new DynamicMount("chatBox").getDirectory());
     }
 
+    // ---------------------------------------------------------------------------------------------------------
+    // Structure
+    // ---------------------------------------------------------------------------------------------------------
+
     @Test
-    public void rootAndOwnDirectoryExist() throws IOException {
+    public void theMountRootIsItsOnlyDirectory() throws IOException {
         DynamicMount mount = new DynamicMount("chatBox");
         Assert.assertTrue(mount.exists(""));
         Assert.assertTrue(mount.exists("/"));
-        Assert.assertTrue(mount.exists("chatBox"));
-        Assert.assertTrue(mount.exists("/chatBox/"));
         Assert.assertTrue(mount.isDirectory(""));
-        Assert.assertTrue(mount.isDirectory("chatBox"));
+        // The mount point already carries the type, so it must not be repeated inside the mount.
+        Assert.assertFalse("the type must not be repeated inside the mount", mount.exists("chatBox"));
+        Assert.assertFalse(mount.isDirectory("chatBox"));
+    }
+
+    @Test
+    public void theScriptsAreDirectlyAtTheMountRoot() throws IOException {
+        DynamicMount mount = new DynamicMount("chatBox");
+        List<String> files = list(mount);
+        Assert.assertTrue(files.contains("talk.lua"));
+        Assert.assertTrue(mount.exists("talk.lua"));
+        Assert.assertFalse(mount.isDirectory("talk.lua"));
+        Assert.assertTrue(mount.getSize("talk.lua") > 0);
     }
 
     @Test
     public void foreignDirectoriesAreInvisible() throws IOException {
         DynamicMount mount = new DynamicMount("chatBox");
         Assert.assertFalse(mount.exists("speaker"));
-        Assert.assertFalse(mount.exists("chatBox/../../speaker"));
+        Assert.assertFalse(mount.exists("../speaker/anything.lua"));
         Assert.assertFalse(mount.exists("notARealPeripheral"));
     }
+
+    // ---------------------------------------------------------------------------------------------------------
+    // Listings
+    // ---------------------------------------------------------------------------------------------------------
 
     @Test
     public void listReturnsOnlyOwnFilesAndHidesTheManifest() throws IOException {
         DynamicMount mount = new DynamicMount("chatBox");
-        List<String> root = new ArrayList<String>();
-        mount.list("", root);
-        Assert.assertEquals(1, root.size());
-        Assert.assertEquals("chatBox", root.get(0));
-
-        List<String> files = new ArrayList<String>();
-        mount.list("chatBox", files);
+        List<String> files = list(mount);
         Assert.assertFalse("the manifest is internal", files.contains("index.json"));
         Assert.assertFalse(files.isEmpty());
+        // This mount has no subdirectories.
+        List<String> nested = new ArrayList<String>();
+        mount.list("chatBox", nested);
+        Assert.assertTrue(nested.isEmpty());
     }
 
     @Test
     public void listedFilesAreReadable() throws IOException {
         DynamicMount mount = new DynamicMount("chatBox");
-        List<String> files = new ArrayList<String>();
-        mount.list("chatBox", files);
+        List<String> files = list(mount);
         Assert.assertFalse(files.isEmpty());
         for (String file : files) {
-            String path = "chatBox/" + file;
-            Assert.assertTrue(path, mount.exists(path));
-            Assert.assertFalse(path, mount.isDirectory(path));
-            Assert.assertTrue(path, mount.getSize(path) > 0);
-            InputStream stream = mount.openForRead(path);
+            Assert.assertTrue(file, mount.exists(file));
+            Assert.assertFalse(file, mount.isDirectory(file));
+            Assert.assertTrue(file, mount.getSize(file) > 0);
+            InputStream stream = mount.openForRead(file);
             Assert.assertNotNull(stream);
             try {
-                Assert.assertFalse(path, readAll(stream).isEmpty());
+                Assert.assertFalse(file, readAll(stream).isEmpty());
             } finally {
                 stream.close();
             }
@@ -105,7 +148,8 @@ public class DynamicMountTest {
         DynamicMount mount = new DynamicMount("chatBox");
         assertUnreadable(mount, "");
         assertUnreadable(mount, "chatBox");
-        assertUnreadable(mount, "chatBox/index.json");
+        assertUnreadable(mount, "index.json");
+        assertUnreadable(mount, "chatBox/talk.lua");
         assertUnreadable(mount, "speaker/anything.lua");
         assertUnreadable(mount, "../chatBox/anything.lua");
     }
@@ -114,25 +158,33 @@ public class DynamicMountTest {
     public void unknownDirectoryIsEmptyNotBroken() throws IOException {
         DynamicMount mount = new DynamicMount("doesNotExist");
         Assert.assertFalse(mount.exists(""));
-        Assert.assertFalse(mount.isDirectory("doesNotExist"));
-        List<String> root = new ArrayList<String>();
-        mount.list("", root);
-        Assert.assertTrue(root.isEmpty());
+        Assert.assertFalse(mount.isDirectory(""));
+        Assert.assertTrue(list(mount).isEmpty());
     }
+
+    // ---------------------------------------------------------------------------------------------------------
+    // Every bundled directory
+    // ---------------------------------------------------------------------------------------------------------
 
     @Test
     public void everyManifestDirectoryResolves() throws IOException {
-        // index.json lists the doc directories that ship with the mod; every one must be mountable, or players get
-        // a /ppp folder that lists a directory it cannot open.
-        DynamicMount any = new DynamicMount("chatBox");
-        Assert.assertTrue(any.exists("chatBox"));
-        String[] directories = { "chatBox", "environmentScanner", "analyzers", "oreDictionary", "barrel", "compass",
-            "feeder", "xp", "speaker", "noteBlock", "peripheralContainer", "antenna", "playerSensor" };
-        for (String directory : directories) {
+        // index.json lists the doc directories that ship with the mod; every one must be mountable and must expose
+        // its scripts at the mount root.
+        for (String directory : DIRECTORIES) {
             DynamicMount mount = new DynamicMount(directory);
-            List<String> files = new ArrayList<String>();
-            mount.list(directory, files);
+            List<String> files = list(mount);
             Assert.assertFalse("no scripts found for " + directory, files.isEmpty());
+            for (String file : files) Assert.assertTrue(directory + "/" + file, mount.exists(file));
+        }
+    }
+
+    @Test
+    public void everyManifestDirectoryHasADistinctMountPoint() {
+        java.util.Set<String> mountPoints = new java.util.HashSet<String>();
+        for (String directory : DIRECTORIES) {
+            Assert.assertTrue(
+                "two peripherals would collide on " + directory,
+                mountPoints.add(new DynamicMount(directory).mountPath("")));
         }
     }
 
