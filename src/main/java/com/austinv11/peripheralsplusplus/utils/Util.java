@@ -1,10 +1,8 @@
 package com.austinv11.peripheralsplusplus.utils;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.Iterator;
 import java.util.List;
 
 import net.minecraft.entity.SharedMonsterAttributes;
@@ -25,31 +23,14 @@ import com.google.common.collect.Multimap;
 
 public class Util {
 
-    public static HashMap<Integer, Object> iteratorToMap(Iterator iterator) {
-        HashMap<Integer, Object> map = new HashMap<Integer, Object>();
-        int i = 1;
-        while (iterator.hasNext()) {
-            map.put(i + 1, iterator.next());
-            i++;
-        }
-        return map;
-    }
-
+    /**
+     * @param iterable the plant types to convert
+     * @return a 1-based Lua table
+     */
     public static HashMap<Integer, Object> EnumSetToMap(EnumSet<EnumPlantType> iterable) {
         HashMap<Integer, Object> map = new HashMap<Integer, Object>();
-        Iterator<EnumPlantType> types = iterable.iterator();
-        for (int i = 0; i < iterable.size(); i++) {
-            map.put(i + 1, types.next());
-        }
-        return map;
-    }
-
-    public static HashMap<Integer, Object> collectionToMap(Collection iterable) {
-        HashMap<Integer, Object> map = new HashMap<Integer, Object>();
-        Iterator<Object> types = iterable.iterator();
-        for (int i = 0; i < iterable.size(); i++) {
-            map.put(i + 1, types.next());
-        }
+        int i = 1;
+        for (EnumPlantType type : iterable) map.put(i++, type);
         return map;
     }
 
@@ -86,9 +67,27 @@ public class Util {
         return entries;
     }
 
+    /**
+     * Whether two stacks share at least one ore dictionary entry.
+     *
+     * <p>
+     * The old implementation called {@link #getEntries} again for every entry of the first stack, allocating a
+     * {@code HashMap} and resolving the ore ids each time (CODE_REVIEW.md section 5.3). The ids are looked up once
+     * per stack now.
+     * </p>
+     *
+     * @param stack1 the first stack
+     * @param stack2 the second stack
+     * @return true when they share an ore dictionary name
+     */
     public static boolean compare(ItemStack stack1, ItemStack stack2) {
-        if (!(stack1 == null || stack2 == null)) for (String key : getEntries(stack1).values()) {
-            if (getEntries(stack2).containsValue(key)) return true;
+        if (stack1 == null || stack2 == null) return false;
+        int[] ids1 = OreDictionary.getOreIDs(stack1);
+        if (ids1.length == 0) return false;
+        int[] ids2 = OreDictionary.getOreIDs(stack2);
+        for (int id1 : ids1) {
+            String name1 = OreDictionary.getOreName(id1);
+            for (int id2 : ids2) if (name1.equals(OreDictionary.getOreName(id2))) return true;
         }
         return false;
     }
@@ -120,17 +119,20 @@ public class Util {
         return val;
     }
 
-    public static Object keyFromVal(HashMap map, Object val) {
-        for (Object key : map.keySet()) if (map.get(key)
-            .equals(val)) return key;
-        return null;
-    }
-
+    /**
+     * Finds an online player by name.
+     *
+     * @param ign the player's username
+     * @return the player, or {@code null} when no server is running or nobody matches
+     */
     public static EntityPlayer getPlayer(String ign) {
-        List<? extends EntityPlayer> players = MinecraftServer.getServer()
-            .getConfigurationManager().playerEntityList;
+        if (ign == null) return null;
+        MinecraftServer server = MinecraftServer.getServer();
+        if (server == null) return null;
+        List<? extends EntityPlayer> players = server.getConfigurationManager().playerEntityList;
         for (EntityPlayer p : players) {
-            if (p.getDisplayName()
+            // getCommandSenderName() is the username; getDisplayName() includes scoreboard team prefixes.
+            if (p.getCommandSenderName()
                 .equalsIgnoreCase(ign)) return p;
         }
         return null;
@@ -144,13 +146,18 @@ public class Util {
         return array_;
     }
 
+    /**
+     * @param world the world to list, or {@code null} for every online player
+     * @return the player usernames
+     */
     public static List<String> getPlayers(World world) {
         List<String> list = new ArrayList<String>();
         if (world != null) {
-            for (EntityPlayer player : (Iterable<EntityPlayer>) world.playerEntities) list.add(player.getDisplayName());
+            for (EntityPlayer player : (Iterable<EntityPlayer>) world.playerEntities)
+                list.add(player.getCommandSenderName());
         } else {
-            for (String player : MinecraftServer.getServer()
-                .getAllUsernames()) list.add(player);
+            MinecraftServer server = MinecraftServer.getServer();
+            if (server != null) for (String player : server.getAllUsernames()) list.add(player);
         }
         return list;
     }

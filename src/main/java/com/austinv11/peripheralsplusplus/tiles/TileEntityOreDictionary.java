@@ -7,6 +7,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.oredict.OreDictionary;
 
+import com.austinv11.peripheralsplusplus.PeripheralsPlusPlus;
 import com.austinv11.peripheralsplusplus.reference.Config;
 import com.austinv11.peripheralsplusplus.utils.ChatUtil;
 import com.austinv11.peripheralsplusplus.utils.Util;
@@ -69,6 +70,7 @@ public class TileEntityOreDictionary extends MountedTileEntity {
     public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] arguments)
         throws LuaException, InterruptedException {
         if (!Config.enableOreDictionary) throw new LuaException("Ore Dictionaries have been disabled");
+        if (!isTurtle()) throw new LuaException("Ore Dictionary blocks have no Lua API; use the turtle upgrade");
         try {
             if (method == 0) {
                 ItemStack slot = turtle.getInventory()
@@ -172,8 +174,12 @@ public class TileEntityOreDictionary extends MountedTileEntity {
                     turtle.getInventory()
                         .getStackInSlot((int) arg2)) };
             }
-        } catch (Exception e) {
-            e.printStackTrace();
+        } catch (LuaException e) {
+            // A LuaException is the program's error and must reach Lua, not be converted into nil.
+            throw e;
+        } catch (RuntimeException e) {
+            PeripheralsPlusPlus.LOGGER.error("Ore Dictionary operation failed: " + e);
+            throw new LuaException("Ore Dictionary operation failed: " + e.getMessage());
         }
         return new Object[0];
     }

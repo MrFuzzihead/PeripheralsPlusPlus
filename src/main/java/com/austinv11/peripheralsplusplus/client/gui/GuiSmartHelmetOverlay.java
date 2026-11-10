@@ -1,8 +1,9 @@
 package com.austinv11.peripheralsplusplus.client.gui;
 
 import java.util.ArrayDeque;
-import java.util.HashMap;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.gui.Gui;
@@ -19,7 +20,7 @@ import cpw.mods.fml.relauncher.SideOnly;
 @SideOnly(Side.CLIENT)
 public class GuiSmartHelmetOverlay extends Gui {
 
-    public static HashMap<UUID, ArrayDeque<HelmetCommand>> renderStack = new HashMap<UUID, ArrayDeque<HelmetCommand>>();
+    public static final Map<UUID, ArrayDeque<HelmetCommand>> renderStack = new ConcurrentHashMap<UUID, ArrayDeque<HelmetCommand>>();
 
     @SubscribeEvent
     public void renderOverlay(RenderGameOverlayEvent.Post event) {
@@ -30,8 +31,9 @@ public class GuiSmartHelmetOverlay extends Gui {
             if (NBTHelper.hasTag(Minecraft.getMinecraft().thePlayer.getCurrentArmor(3), "identifier")) {
                 UUID uuid = UUID.fromString(
                     NBTHelper.getString(Minecraft.getMinecraft().thePlayer.getCurrentArmor(3), "identifier"));
-                if (renderStack.containsKey(uuid)) {
-                    ArrayDeque<HelmetCommand> commands = new ArrayDeque<HelmetCommand>(renderStack.get(uuid));
+                ArrayDeque<HelmetCommand> queued = renderStack.get(uuid);
+                if (queued != null) {
+                    ArrayDeque<HelmetCommand> commands = new ArrayDeque<HelmetCommand>(queued);
                     while (!commands.isEmpty()) commands.poll()
                         .call(this);
                 }

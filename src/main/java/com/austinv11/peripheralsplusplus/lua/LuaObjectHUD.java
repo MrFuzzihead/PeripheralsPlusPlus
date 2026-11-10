@@ -35,12 +35,52 @@ public class LuaObjectHUD implements ILuaObject {
     private boolean isGui = false;
     public MessageCommand messageCommand = new MessageCommand();
 
-    public LuaObjectHUD(String player, UUID uuid) {
-        this.player = Util.getPlayer(player);
+    /** The name this HUD was created for; every map lookup uses it so a rename cannot split the queue. */
+    private final String playerName;
+
+    public LuaObjectHUD(String playerName, UUID uuid) {
+        this.playerName = playerName;
+        this.player = Util.getPlayer(playerName);
         this.uuid = uuid;
-        if (!MessageCommand.messageStacks.containsKey(player))
-            MessageCommand.messageStacks.put(player, new Stack<String>());
-        messageCommand.player = player;
+        messagesFor(playerName);
+        messageCommand.player = playerName;
+        renderStack.add(messageCommand);
+    }
+
+    /**
+     * The pending message queue for a player, created on demand.
+     *
+     * @param name the player name
+     * @return the live stack
+     */
+    private static Stack<String> messagesFor(String name) {
+        Stack<String> existing = MessageCommand.messageStacks.get(name);
+        if (existing != null) return existing;
+        Stack<String> created = new Stack<String>();
+        Stack<String> previous = MessageCommand.messageStacks.putIfAbsent(name, created);
+        return previous == null ? created : previous;
+    }
+
+    /**
+     * @return the player, never {@code null}
+     * @throws LuaException when the player has logged off since this HUD was created
+     */
+    private EntityPlayer requirePlayer() throws LuaException {
+        EntityPlayer resolved = player == null ? Util.getPlayer(playerName) : player;
+        if (resolved == null) throw new LuaException("Player " + playerName + " is no longer online");
+        player = resolved;
+        return resolved;
+    }
+
+    /** Sends nothing when the player is gone, instead of NPE-ing on the cast. */
+    private void sendToPlayer(cpw.mods.fml.common.network.simpleimpl.IMessage message) throws LuaException {
+        PeripheralsPlusPlus.NETWORK.sendTo(message, (EntityPlayerMP) requirePlayer());
+    }
+
+    /** Empties this player's pending chat lines and leaves only the message command on the stack. */
+    private void clearAndReset() {
+        messagesFor(playerName).clear();
+        renderStack.clear();
         renderStack.add(messageCommand);
     }
 
@@ -69,8 +109,7 @@ public class LuaObjectHUD implements ILuaObject {
             case 1:
                 if (arguments.length < 1) throw new LuaException("Not enough arguments");
                 if (!(arguments[0] instanceof String)) throw new LuaException("Bad argument #1 (expected string)");
-                MessageCommand.messageStacks.get(player.getDisplayName())
-                    .push((String) arguments[0]);
+                messagesFor(playerName).push((String) arguments[0]);
                 break;
             case 2:
                 if (arguments.length < 3) throw new LuaException("Not enough arguments");
@@ -187,35 +226,24 @@ public class LuaObjectHUD implements ILuaObject {
                     (int) (double) (Double) arguments[1],
                     (int) (double) (Double) arguments[2]).getRGB() };
             case 8:
-                PeripheralsPlusPlus.NETWORK
-                    .sendTo(new CommandPacket(stackToArray(), uuid, false, isGui), (EntityPlayerMP) player);
-                MessageCommand.messageStacks.get(player.getDisplayName())
-                    .clear();
-                renderStack.clear();
-                renderStack.add(messageCommand);
+                sendToPlayer(new CommandPacket(stackToArray(), uuid, false, isGui));
+                clearAndReset();
                 break;
             case 9:
-                PeripheralsPlusPlus.NETWORK
-                    .sendTo(new CommandPacket(new HelmetCommand[0], uuid, false, isGui), (EntityPlayerMP) player);
-                MessageCommand.messageStacks.get(player.getDisplayName())
-                    .clear();
-                renderStack.clear();
-                renderStack.add(messageCommand);
+                sendToPlayer(new CommandPacket(new HelmetCommand[0], uuid, false, isGui));
+                clearAndReset();
                 break;
             case 10:
-                PeripheralsPlusPlus.NETWORK
-                    .sendTo(new CommandPacket(stackToArray(), uuid, true, isGui), (EntityPlayerMP) player);
-                MessageCommand.messageStacks.get(player.getDisplayName())
-                    .clear();
-                renderStack.clear();
-                renderStack.add(messageCommand);
+                sendToPlayer(new CommandPacket(stackToArray(), uuid, true, isGui));
+                clearAndReset();
                 break;
             case 11:
-                if (isGui) PeripheralsPlusPlus.NETWORK.sendTo(new GuiPacket(false), (EntityPlayerMP) this.player);
-                else return new Object[] { new LuaObjectHUD(this.player.getDisplayName(), this.uuid, true) };
+                if (isGui) sendToPlayer(new GuiPacket(false));
+                else return new Object[] { new LuaObjectHUD(this.playerName, this.uuid, true) };
                 break;
             case 12:
-                PeripheralsPlusPlus.NETWORK.sendTo(new GuiPacket(true), (EntityPlayerMP) this.player);
+                if (!isGui) throw new LuaException("close() is not available to HUD programs");
+                sendToPlayer(new GuiPacket(true));
                 break;
             case 13:
                 if (arguments.length > 0 && !(arguments[0] instanceof Boolean))
@@ -269,12 +297,7 @@ public class LuaObjectHUD implements ILuaObject {
     }
 
     private HelmetCommand[] stackToArray() {
-        HelmetCommand[] array = new HelmetCommand[renderStack.size()];
-        int i = 0;
-        while (!renderStack.isEmpty()) {
-            array[i] = renderStack.poll();
-            i++;
-        }
-        return array;
+        // Iterate rather than drain: the old version emptied the deque even when the packet failed to send.
+        return renderStack.toArray(new HelmetCommand[0]);
     }
 }

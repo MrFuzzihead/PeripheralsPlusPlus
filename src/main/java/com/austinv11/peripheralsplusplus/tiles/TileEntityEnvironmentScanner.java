@@ -1,6 +1,7 @@
 package com.austinv11.peripheralsplusplus.tiles;
 
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.world.biome.BiomeGenBase;
 
 import com.austinv11.peripheralsplusplus.reference.Config;
 
@@ -46,16 +47,19 @@ public class TileEntityEnvironmentScanner extends MountedTileEntity {
     public void updateEntity() {
         if (worldObj != null) {
             isRaining = worldObj.isRaining();
-            biome = worldObj.getBiomeGenForCoords(xCoord, zCoord).biomeName;
-            temp = worldObj.getBiomeGenForCoords(xCoord, zCoord)
-                .getTempCategory()
-                .name();
-            isSnow = worldObj.getBiomeGenForCoords(xCoord, zCoord)
-                .getEnableSnow();
+            // One lookup per tick, not three (CODE_REVIEW.md section 5.23).
+            BiomeGenBase biomeGen = worldObj.getBiomeGenForCoords(xCoord, zCoord);
+            if (biomeGen != null) {
+                biome = biomeGen.biomeName;
+                temp = biomeGen.getTempCategory()
+                    .name();
+                isSnow = biomeGen.getEnableSnow();
+            }
         }
         if (turtle != null) {
             this.setWorldObj(turtle.getWorld());
             this.xCoord = turtle.getPosition().posX;
+            this.yCoord = turtle.getPosition().posY;
             this.zCoord = turtle.getPosition().posZ;
         }
     }
@@ -67,7 +71,7 @@ public class TileEntityEnvironmentScanner extends MountedTileEntity {
 
     @Override
     public String[] getMethodNames() {
-        return new String[] { "isRaining", "getBiome", "getTemperature", "getTemp", "isSnow" };
+        return new String[] { "isRaining", "getBiome", "getTemp", "isSnow" };
     }
 
     @Override
@@ -80,9 +84,8 @@ public class TileEntityEnvironmentScanner extends MountedTileEntity {
             case 1:
                 return new Object[] { biome };
             case 2:
-            case 3:
                 return new Object[] { temp };
-            case 4:
+            case 3:
                 return new Object[] { isSnow };
         }
         return new Object[0];

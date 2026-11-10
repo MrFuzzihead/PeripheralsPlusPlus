@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 
+import com.austinv11.peripheralsplusplus.PeripheralsPlusPlus;
 import com.austinv11.peripheralsplusplus.cleverbot.AIChatRequest;
 import com.austinv11.peripheralsplusplus.reference.Config;
 import com.google.code.chatterbotapi.ChatterBot;
@@ -146,7 +147,7 @@ public class TileEntityAIChatBox extends MountedTileEntity {
                 return new Object[] { luaSession };
 
             } catch (Exception e) {
-                e.printStackTrace();
+                PeripheralsPlusPlus.LOGGER.error("Unable to create a Cleverbot session: " + e);
                 throw new LuaException("ERROR creating session, make sure the server has internet access!");
             }
         }
@@ -267,8 +268,11 @@ public class TileEntityAIChatBox extends MountedTileEntity {
         // Try to convert a string variable to an UUID. If the string is invalid then return null.
         static UUID stringToUUID(String string) throws LuaException, InterruptedException {
             if (string == null) return null;
-
-            return UUID.fromString(string);
+            try {
+                return UUID.fromString(string);
+            } catch (IllegalArgumentException e) {
+                throw new LuaException("Bad uuid '" + string + "'");
+            }
         }
     }
 

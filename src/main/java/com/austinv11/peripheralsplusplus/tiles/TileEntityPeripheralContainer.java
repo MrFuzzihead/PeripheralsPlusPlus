@@ -89,7 +89,9 @@ public class TileEntityPeripheralContainer extends MountedNetworkedTileEntity {
         } else if (method == 1) {
             if (arguments.length < 1) throw new LuaException("Too few arguments");
             if (!(arguments[0] instanceof String)) throw new LuaException("Bad argument #1 (expected string)");
-            return new Object[] { new LuaObjectPeripheralWrap(getPeripheralByName((String) arguments[0]), computer) };
+            IPeripheral wrapped = getPeripheralByName((String) arguments[0]);
+            if (wrapped == null) throw new LuaException("No contained peripheral named " + arguments[0]);
+            return new Object[] { new LuaObjectPeripheralWrap(wrapped, computer) };
         }
         return new Object[0];
     }

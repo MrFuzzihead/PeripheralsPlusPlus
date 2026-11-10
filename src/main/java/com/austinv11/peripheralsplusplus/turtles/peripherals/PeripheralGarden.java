@@ -6,7 +6,9 @@ import net.minecraft.block.IGrowable;
 import net.minecraft.init.Items;
 import net.minecraft.item.ItemDye;
 import net.minecraft.item.ItemStack;
+import net.minecraft.util.ChunkCoordinates;
 import net.minecraft.util.Facing;
+import net.minecraft.world.World;
 
 import com.austinv11.peripheralsplusplus.reference.Config;
 
@@ -39,123 +41,63 @@ public class PeripheralGarden extends MountedPeripheral {
     public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] arguments)
         throws LuaException, InterruptedException {
         if (!Config.enableGardeningTurtle) throw new LuaException("Gardening Turtles have been disabled!");
-        if (method == 0) {
-            int blockX = turtle.getPosition().posX + Facing.offsetsXForSide[turtle.getDirection()];
-            int blockY = turtle.getPosition().posY + Facing.offsetsYForSide[turtle.getDirection()];
-            int blockZ = turtle.getPosition().posZ + Facing.offsetsZForSide[turtle.getDirection()];
-
-            Block blockFacing = turtle.getWorld()
-                .getBlock(blockX, blockY, blockZ);
-
-            if (blockFacing instanceof IGrowable) {
-                return new Object[] { Math.floor(
-                    (turtle.getWorld()
-                        .getBlockMetadata(blockX, blockY, blockZ) / (blockFacing instanceof BlockCocoa ? 8.0F : 7.0F))
-                        * 100.0F) };
-            }
-        } else if (method == 1) {
-            int blockX = turtle.getPosition().posX;
-            int blockY = turtle.getPosition().posY + +1;
-            int blockZ = turtle.getPosition().posZ;
-
-            Block blockFacing = turtle.getWorld()
-                .getBlock(blockX, blockY, blockZ);
-
-            if (blockFacing instanceof IGrowable) {
-                return new Object[] { Math.floor(
-                    (turtle.getWorld()
-                        .getBlockMetadata(blockX, blockY, blockZ) / (blockFacing instanceof BlockCocoa ? 8.0F : 7.0F))
-                        * 100.0F) };
-            }
-        } else if (method == 2) {
-            int blockX = turtle.getPosition().posX;
-            int blockY = turtle.getPosition().posY + -1;
-            int blockZ = turtle.getPosition().posZ;
-
-            Block blockFacing = turtle.getWorld()
-                .getBlock(blockX, blockY, blockZ);
-
-            if (blockFacing instanceof IGrowable) {
-                return new Object[] { Math.floor(
-                    (turtle.getWorld()
-                        .getBlockMetadata(blockX, blockY, blockZ) / (blockFacing instanceof BlockCocoa ? 8.0F : 7.0F))
-                        * 100.0F) };
-            }
-        } else if (method == 3) {
-            boolean success = false;
-            if (turtle.getInventory()
-                .getStackInSlot(turtle.getSelectedSlot()) != null && turtle.getInventory()
-                    .getStackInSlot(turtle.getSelectedSlot())
-                    .isItemEqual(new ItemStack(Items.dye, 1, 15))) {
-                ItemStack bonemeal = turtle.getInventory()
-                    .getStackInSlot(turtle.getSelectedSlot());
-                int blockX = turtle.getPosition().posX + Facing.offsetsXForSide[turtle.getDirection()];
-                int blockY = turtle.getPosition().posY + Facing.offsetsYForSide[turtle.getDirection()];
-                int blockZ = turtle.getPosition().posZ + Facing.offsetsZForSide[turtle.getDirection()];
-
-                Block blockFacing = turtle.getWorld()
-                    .getBlock(blockX, blockY, blockZ);
-
-                if (blockFacing instanceof IGrowable) {
-                    success = ItemDye.applyBonemeal(bonemeal, turtle.getWorld(), blockX, blockY, blockZ, null);
-                    if (!turtle.getWorld().isRemote) {
-                        turtle.getWorld()
-                            .playAuxSFX(2005, blockX, blockY, blockZ, 0);
-                    }
-                }
-            }
-            return new Object[] { success };
-        } else if (method == 4) {
-            boolean success = false;
-            if (turtle.getInventory()
-                .getStackInSlot(turtle.getSelectedSlot()) != null && turtle.getInventory()
-                    .getStackInSlot(turtle.getSelectedSlot())
-                    .isItemEqual(new ItemStack(Items.dye, 1, 15))) {
-                ItemStack bonemeal = turtle.getInventory()
-                    .getStackInSlot(turtle.getSelectedSlot());
-                int blockX = turtle.getPosition().posX;
-                int blockY = turtle.getPosition().posY + +1;
-                int blockZ = turtle.getPosition().posZ;
-
-                Block blockFacing = turtle.getWorld()
-                    .getBlock(blockX, blockY, blockZ);
-
-                if (blockFacing instanceof IGrowable) {
-                    success = ItemDye.applyBonemeal(bonemeal, turtle.getWorld(), blockX, blockY, blockZ, null);
-                    if (!turtle.getWorld().isRemote) {
-                        turtle.getWorld()
-                            .playAuxSFX(2005, blockX, blockY, blockZ, 0);
-                    }
-                }
-            }
-            return new Object[] { success };
-        } else if (method == 5) {
-            boolean success = false;
-            if (turtle.getInventory()
-                .getStackInSlot(turtle.getSelectedSlot()) != null && turtle.getInventory()
-                    .getStackInSlot(turtle.getSelectedSlot())
-                    .isItemEqual(new ItemStack(Items.dye, 1, 15))) {
-                ItemStack bonemeal = turtle.getInventory()
-                    .getStackInSlot(turtle.getSelectedSlot());
-                int blockX = turtle.getPosition().posX;
-                int blockY = turtle.getPosition().posY - 1;
-                int blockZ = turtle.getPosition().posZ;
-
-                Block blockFacing = turtle.getWorld()
-                    .getBlock(blockX, blockY, blockZ);
-
-                if (blockFacing instanceof IGrowable) {
-                    success = ItemDye.applyBonemeal(bonemeal, turtle.getWorld(), blockX, blockY, blockZ, null);
-                    if (!turtle.getWorld().isRemote) {
-                        turtle.getWorld()
-                            .playAuxSFX(2005, blockX, blockY, blockZ, 0);
-                    }
-                }
-            }
-            return new Object[] { success };
+        switch (method) {
+            case 0:
+            case 1:
+            case 2:
+                return new Object[] { growthPercent(targetOf(method)) };
+            case 3:
+            case 4:
+            case 5:
+                return new Object[] { fertilize(targetOf(method)) };
+            default:
+                return new Object[0];
         }
+    }
 
-        return new Object[0];
+    /**
+     * @param method 0-2 for the growth queries, 3-5 for the fertilize calls
+     * @return the block position the method addresses
+     */
+    private int[] targetOf(int method) {
+        ChunkCoordinates position = turtle.getPosition();
+        int offset = method % 3;
+        if (offset == 1) return new int[] { position.posX, position.posY + 1, position.posZ };
+        if (offset == 2) return new int[] { position.posX, position.posY - 1, position.posZ };
+        int direction = turtle.getDirection();
+        return new int[] { position.posX + Facing.offsetsXForSide[direction],
+            position.posY + Facing.offsetsYForSide[direction], position.posZ + Facing.offsetsZForSide[direction] };
+    }
+
+    /**
+     * @param target the block position
+     * @return the growth percentage (0-100), or {@code null} when the block cannot grow
+     */
+    private Double growthPercent(int[] target) {
+        World world = turtle.getWorld();
+        Block block = world.getBlock(target[0], target[1], target[2]);
+        if (!(block instanceof IGrowable)) return null;
+        float divisor = block instanceof BlockCocoa ? 8.0F : 7.0F;
+        return (double) Math.floor((world.getBlockMetadata(target[0], target[1], target[2]) / divisor) * 100.0F);
+    }
+
+    /**
+     * Applies bone meal from the selected slot.
+     *
+     * @param target the block position
+     * @return true when the block grew
+     */
+    private boolean fertilize(int[] target) {
+        ItemStack bonemeal = turtle.getInventory()
+            .getStackInSlot(turtle.getSelectedSlot());
+        if (bonemeal == null) return false;
+        ItemStack boneMeal = new ItemStack(Items.dye, 1, 15);
+        if (!bonemeal.isItemEqual(boneMeal)) return false;
+        World world = turtle.getWorld();
+        if (!(world.getBlock(target[0], target[1], target[2]) instanceof IGrowable)) return false;
+        boolean grew = ItemDye.applyBonemeal(bonemeal, world, target[0], target[1], target[2], null);
+        if (grew && !world.isRemote) world.playAuxSFX(2005, target[0], target[1], target[2], 0);
+        return grew;
     }
 
     @Override

@@ -1,6 +1,8 @@
 package com.austinv11.peripheralsplusplus.tiles;
 
 import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
@@ -228,7 +230,7 @@ public class TileEntityChatBox extends MountedTileEntity {
 
     public static class ChatListener {
 
-        private static HashMap<TileEntityChatBox, Boolean> chatBoxMap = new HashMap<TileEntityChatBox, Boolean>();
+        private static final Map<TileEntityChatBox, Boolean> chatBoxMap = new ConcurrentHashMap<TileEntityChatBox, Boolean>();
 
         @SubscribeEvent(priority = EventPriority.LOWEST)
         public void onChat(ServerChatEvent event) {

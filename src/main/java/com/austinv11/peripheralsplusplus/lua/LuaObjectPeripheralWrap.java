@@ -18,12 +18,13 @@ public class LuaObjectPeripheralWrap implements ILuaObject {
 
     @Override
     public String[] getMethodNames() {
-        return peripheral.getMethodNames();
+        return peripheral == null ? new String[0] : peripheral.getMethodNames();
     }
 
     @Override
     public Object[] callMethod(ILuaContext context, int method, Object[] arguments)
         throws LuaException, InterruptedException {
+        if (peripheral == null) throw new LuaException("No such peripheral");
         return peripheral.callMethod(computer, context, method, arguments);
     }
 }

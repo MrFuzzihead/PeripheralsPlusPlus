@@ -6,6 +6,7 @@ import java.awt.event.KeyEvent;
 import java.lang.reflect.Field;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+import com.austinv11.peripheralsplusplus.PeripheralsPlusPlus;
 import com.austinv11.peripheralsplusplus.network.RobotEventPacket;
 import com.austinv11.peripheralsplusplus.reference.Config;
 
@@ -21,7 +22,7 @@ public class RobotHandler {
         try {
             robot = new Robot();
         } catch (AWTException e) {
-            e.printStackTrace();
+            PeripheralsPlusPlus.LOGGER.error("Unable to create the input Robot, nano-bot input is disabled: " + e);
         }
     }
 
@@ -31,6 +32,11 @@ public class RobotHandler {
     }
 
     private void doOperations() {
+        if (robot == null) {
+            // No AWT Robot (headless client, no display): drop the queue rather than NPE every tick.
+            operationList.clear();
+            return;
+        }
         for (RobotOperation operation : operationList) {
             if (operation.isFinished()) {
                 operation.onFinish(robot);
@@ -49,12 +55,13 @@ public class RobotHandler {
         }
 
         public boolean isFinished() {
-            return ticker == 0;
+            return ticker <= 0;
         }
 
         public void tick(Robot robot) {
+            // A non-positive reversal delay must still press once, not finish before it ever operates.
             if (maxTick == ticker) operate(robot);
-            if (ticker != 0) ticker--;
+            if (ticker > 0) ticker--;
         }
 
         public abstract void onFinish(Robot robot);
@@ -73,29 +80,30 @@ public class RobotHandler {
 
         @Override
         public void onFinish(Robot robot) {
-            if (pressType == RobotEventPacket.PressType.PRESS) try {
-                robot.keyRelease(getKeyField().getInt(null));
-            } catch (IllegalAccessException e) {
-                e.printStackTrace();
-            }
+            int code = keyCode();
+            if (code >= 0 && pressType == RobotEventPacket.PressType.PRESS) robot.keyRelease(code);
         }
 
         @Override
         public void operate(Robot robot) {
-            try {
-                robot.keyPress(getKeyField().getInt(null));
-            } catch (IllegalAccessException e) {
-                e.printStackTrace();
-            }
+            int code = keyCode();
+            if (code >= 0) robot.keyPress(code);
         }
 
-        public Field getKeyField() {
+        /**
+         * @return the {@code KeyEvent.VK_*} code for this operation's key name, or {@code -1} when it is not one
+         */
+        public int keyCode() {
+            if (key == null) return -1;
             try {
-                return KeyEvent.class.getField("VK_" + key.toUpperCase());
+                Field field = KeyEvent.class.getField("VK_" + key.toUpperCase(java.util.Locale.ROOT));
+                return field.getInt(null);
             } catch (NoSuchFieldException e) {
-                e.printStackTrace();
+                PeripheralsPlusPlus.LOGGER.error("Unknown key name '" + key + "', ignoring the robot event");
+            } catch (IllegalAccessException e) {
+                PeripheralsPlusPlus.LOGGER.error("Unable to read the key code for '" + key + "': " + e);
             }
-            return null; // This shouldn't be reached
+            return -1;
         }
     }
 

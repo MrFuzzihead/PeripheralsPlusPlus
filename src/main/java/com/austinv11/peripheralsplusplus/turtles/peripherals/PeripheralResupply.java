@@ -21,6 +21,7 @@ public class PeripheralResupply extends MountedPeripheral {
 
     private ITurtleAccess turtle;
     private ChunkCoordinates linkedStation;
+    private int linkedDimension = Integer.MIN_VALUE;
 
     public PeripheralResupply(ITurtleAccess turtle) {
         this.turtle = turtle;
@@ -42,11 +43,12 @@ public class PeripheralResupply extends MountedPeripheral {
         if (!Config.enableResupplyStation) throw new LuaException("The resupply station has been disabled");
         switch (method) {
             case 0:
-                if (arguments.length < 1 || (arguments.length > 1 && arguments.length < 3))
-                    throw new LuaException("Too few arguments");
+                // link() takes one argument (a side) or three (x, y, z). Two was rejected as "too few" before.
+                if (arguments.length != 1 && arguments.length != 3)
+                    throw new LuaException("link() expects a side, or x, y and z");
                 if (!(arguments[0] instanceof String) && !(arguments[0] instanceof Double))
                     throw new LuaException("Bad argument #1 (expected string or number)");
-                if (arguments.length > 1) {
+                if (arguments.length == 3) {
                     if (!(arguments[0] instanceof Double)) throw new LuaException("Bad argument #1 (expected number)");
                     if (!(arguments[1] instanceof Double)) throw new LuaException("Bad argument #2 (expected number)");
                     if (!(arguments[2] instanceof Double)) throw new LuaException("Bad argument #3 (expected number)");
@@ -54,6 +56,7 @@ public class PeripheralResupply extends MountedPeripheral {
                         ((Double) arguments[0]).intValue(),
                         ((Double) arguments[1]).intValue(),
                         ((Double) arguments[2]).intValue());
+                    linkedDimension = turtle.getWorld().provider.dimensionId;
                     return new Object[] { true };
                 }
                 ForgeDirection dir;
@@ -70,11 +73,14 @@ public class PeripheralResupply extends MountedPeripheral {
                         .getBlock(newLink.posX, newLink.posY, newLink.posZ) instanceof BlockResupplyStation))
                     return new Object[] { false };
                 linkedStation = newLink;
+                linkedDimension = turtleWorld.provider.dimensionId;
                 return new Object[] { true };
 
             case 1:
                 if (linkedStation == null) throw new LuaException("A station has not been linked!");
                 World world = turtle.getWorld();
+                if (linkedDimension != world.provider.dimensionId)
+                    throw new LuaException("The linked station is in another dimension");
                 if (!world.blockExists(linkedStation.posX, linkedStation.posY, linkedStation.posZ)
                     || world.isAirBlock(linkedStation.posX, linkedStation.posY, linkedStation.posZ)
                     || !(world.getBlock(

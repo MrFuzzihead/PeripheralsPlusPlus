@@ -44,9 +44,10 @@ Everything else is a documented backlog, ordered by phase in §9.
   succeeded. §3.3.
 * **Four user-visible miscalculations** in the sorter/tank/XP/note-block code paths that lose or duplicate
   items. §4.1–§4.4.
-* **Every P1 is fixed** (batch 2, §14): the sorter/resupply/player-interface/tank/XP item and fluid loss, the
-  unbounded-range `setTarget` exploit, the three permanent memory leaks, and the NBT-destroying inventory merges.
-  §5–§6 still catalogue 48 lower-severity issues (thread-unsafe static collections, `printStackTrace`, dead code).
+* **Every P1 is fixed** (batch 2, §14) and **39 of the 48 P2 items are fixed** (batch 3, §15): the thread-unsafe
+  static collections, the unbounded `getClosestEntity`, the `Class.forName` on a network-supplied name, the shared
+  smart-helmet message stack, the per-tick NBT rewrites and biome lookups, and the wind-down duplication in the
+  garden/sign-reader/resupply/barrel peripherals.
 * **5,000+ lines of duplicated logic** (two copies of `isInventoryOnSide`/`getInventoryForSide`, three copies
   of the slot-moving code, six copies of the "1-based Lua table" helper, five copies of `mount`/`detach`).
   §7 lists every duplicate with the target abstraction.
@@ -455,54 +456,54 @@ use). Either case is an NPE on every `push`/`retrieve`. Also `pushToSlot` requir
 
 | # | Location | Finding |
 |---|---|---|
-| 5.1 | `utils/Util.java:32` | `iteratorToMap` starts at `i = 1` and stores `i + 1`, so the first Lua key is **2**. Every other helper is 1-based. Currently unused, so latent. |
-| 5.2 | `utils/TurtleUtil.java:62-76` | `getClosestEntity`/`getClosestShearableEntity` never update `lastDistance`, so they return the **last** entity in range, not the closest (`getClosestShearableEntity` is used by `TurtleShear`, `getClosestEntity` by both RedPower-like tool upgrades). |
-| 5.3 | `utils/Util.java:88-93` | `compare(ItemStack, ItemStack)` calls `getEntries()` (an `OreDictionary` lookup + `HashMap` allocation) *inside* the loop, `O(n·m)` allocations per comparison; used by every `oreDictionary.doItemsMatch`. |
-| 5.4 | `utils/Util.java:123` | `keyFromVal` does `map.get(key).equals(val)` → NPE on any `null` value. Unused (dead). |
-| 5.5 | `utils/Util.java:126` | `getPlayer(ign)` dereferences `MinecraftServer.getServer()` (null on the client / during shutdown) and matches on `getDisplayName()` (includes scoreboard prefixes). |
-| 5.6 | `utils/Util.java:139` | `stringToArray` naively `replace("]"…).split(",")`; a message containing `,` or `[]` round-trips wrong (`MessageCommand`). |
+| 5.1 ✅ | `utils/Util.java:32` | `iteratorToMap` starts at `i = 1` and stores `i + 1`, so the first Lua key is **2**. Every other helper is 1-based. Currently unused, so latent. |
+| 5.2 ✅ | `utils/TurtleUtil.java:62-76` | `getClosestEntity`/`getClosestShearableEntity` never update `lastDistance`, so they return the **last** entity in range, not the closest (`getClosestShearableEntity` is used by `TurtleShear`, `getClosestEntity` by both RedPower-like tool upgrades). |
+| 5.3 ✅ | `utils/Util.java:88-93` | `compare(ItemStack, ItemStack)` calls `getEntries()` (an `OreDictionary` lookup + `HashMap` allocation) *inside* the loop, `O(n·m)` allocations per comparison; used by every `oreDictionary.doItemsMatch`. |
+| 5.4 ✅ | `utils/Util.java:123` | `keyFromVal` does `map.get(key).equals(val)` → NPE on any `null` value. Unused (dead). |
+| 5.5 ✅ | `utils/Util.java:126` | `getPlayer(ign)` dereferences `MinecraftServer.getServer()` (null on the client / during shutdown) and matches on `getDisplayName()` (includes scoreboard prefixes). |
+| 5.6 ✅ | `utils/Util.java:139` | `stringToArray` naively `replace("]"…).split(",")`; a message containing `,` or `[]` round-trips wrong (`MessageCommand`). |
 | 5.7 | `utils/ChatUtil.java:60` | `getPlayer` also matches on `getDisplayName()`; a team prefix or a nickname mod makes `tell` target the wrong player. |
 | 5.8 | `tiles/TileEntityChatBox.java:187` | `tell` assigns `range = (Double) arguments[2]` with **no clamp** to `Config.sayRange`, unlike `say` (`:146`). A Lua program can broadcast to every player in the dimension. |
-| 5.9 | `tiles/TileEntityChatBox.java:245` | `event.message.replace(commandPrefix, "")` removes **every** occurrence, not just the leading prefix (`\say \done` → `say done`). |
-| 5.10 | `tiles/TileEntityChatBox.java:125/175` | The rate limiter is `ticker == Config.sayRate`; `Config.sayRate < 1` blocks permanently, and `ticker` is mutated under `synchronized (this)` in `callMethod` but not in `updateEntity`. |
-| 5.11 | `tiles/TileEntityAntenna.java:52-58` | `antenna_registry` is a plain `static HashMap<UUID, TileEntityAntenna>` written from `validate`/`invalidate`/`updateEntity` on the server thread and read from CC computer threads. Same pattern in `TurtleDropCollector.map`, `MessageCommand.messageStacks`, `CreativeTabPPP.upgrades`, `ComputerCraftRegistry.pocketUpgrades`/`craftingRecipes`, `GuiHelmet.renderStack`, `GuiSmartHelmetOverlay.renderStack`, `RobotHandler.operationList` (the only concurrent one). |
-| 5.12 | `tiles/TileEntityAntenna.java:143` | `huds` (`HashMap<Integer, LuaObjectHUD>`) is keyed by computer id and never cleaned on `detach`; each `getHUD` also sends a `ScaleRequestPacket` that a dead client never answers, so the `pullEvent` coroutine waits forever. |
-| 5.13 | `lua/LuaObjectHUD.java:52` | `Util.getPlayer(player)` can return `null`; every subsequent `player.getDisplayName()` NPEs. `MessageCommand.messageStacks` is keyed by *display name*. |
-| 5.14 | `lua/LuaObjectHUD.java:373` | `stackToArray()` drains the deque with `poll()` instead of iterating, so the HUD state is destroyed even if the packet fails to send. |
+| 5.9 ✅ | `tiles/TileEntityChatBox.java:245` | `event.message.replace(commandPrefix, "")` removes **every** occurrence, not just the leading prefix (`\say \done` → `say done`). |
+| 5.10 ✅ | `tiles/TileEntityChatBox.java:125/175` | The rate limiter is `ticker == Config.sayRate`; `Config.sayRate < 1` blocks permanently, and `ticker` is mutated under `synchronized (this)` in `callMethod` but not in `updateEntity`. |
+| 5.11 ✅ | `tiles/TileEntityAntenna.java:52-58` | `antenna_registry` is a plain `static HashMap<UUID, TileEntityAntenna>` written from `validate`/`invalidate`/`updateEntity` on the server thread and read from CC computer threads. Same pattern in `TurtleDropCollector.map`, `MessageCommand.messageStacks`, `CreativeTabPPP.upgrades`, `ComputerCraftRegistry.pocketUpgrades`/`craftingRecipes`, `GuiHelmet.renderStack`, `GuiSmartHelmetOverlay.renderStack`, `RobotHandler.operationList` (the only concurrent one). |
+| 5.12 ✅ | `tiles/TileEntityAntenna.java:143` | `huds` (`HashMap<Integer, LuaObjectHUD>`) is keyed by computer id and never cleaned on `detach`; each `getHUD` also sends a `ScaleRequestPacket` that a dead client never answers, so the `pullEvent` coroutine waits forever. |
+| 5.13 ✅ | `lua/LuaObjectHUD.java:52` | `Util.getPlayer(player)` can return `null`; every subsequent `player.getDisplayName()` NPEs. `MessageCommand.messageStacks` is keyed by *display name*. |
+| 5.14 ✅ | `lua/LuaObjectHUD.java:373` | `stackToArray()` drains the deque with `poll()` instead of iterating, so the HUD state is destroyed even if the packet fails to send. |
 | 5.15 | `lua/LuaObjectPlayerInv.java:186` | `getOutputInventory`/`getInputInventory` cast `world.getTileEntity(...)` to `IInventory` for any `BlockContainer` → CCE for a non-inventory container (e.g. a CC computer, a chest next to it is fine but an AE interface is not). They are also called twice per operation (`:145`/`:147`), re-resolving the tile each time. |
 | 5.16 | `lua/LuaObjectPlayerInv.java:247` | `addStackToInv` mutates the inventory *and* returns `false` when a partial insert happens with `slot != -1`; the caller then overwrites the source slot with `origStack` → **item duplication**. |
-| 5.17 | `lua/LuaObjectPeripheralWrap.java:31` | `wrapPeripheral(name)` passes `getPeripheralByName(name)`, which returns `null` for an unknown name → NPE inside `getMethodNames()` instead of a `LuaException`. Same in `PeripheralPeripheralContainer:79`. |
-| 5.18 | `tiles/TileEntityAIChatBox.java:130` | `sessions` is never pruned on `invalidate()`; each `BotSessionLuaObject` holds a `ChatterBot`/`ChatterBotSession` for the JVM lifetime. `computers` is an `ArrayList` mutated from `attach`/`detach` and iterated from the `AIChatRequest` worker thread. |
-| 5.19 | `tiles/TileEntityAIChatBox.java:262` | `ArgumentHelper.stringToUUID` calls `UUID.fromString` unguarded → `IllegalArgumentException`, not `LuaException`. `ArgumentHelper.getBotType`/`stringToType` are unused. |
-| 5.20 | `tiles/TileEntitySpeaker.java:105` | `packetInfo` is a single shared 4-element buffer; two `speak()` calls in the same tick drop the first. `synthesize`'s `range` is unclamped (same class of bug as 5.8). |
-| 5.21 | `tiles/TileEntitySpeaker.java:200` | `onSpeechCompletion` broadcasts to *every* computer with `eventTicker == 0 \|\| !lastMessage.equals(text)`, so a second speaker's completion event can unlock the wrong coroutine. |
-| 5.22 | `tiles/TileEntityTimeSensor.java:52` | `new SimpleDateFormat(...)` per call with the default locale/timezone; `getDate` is TZ-dependent while `getTime` is epoch ms. `profiler` is not cleared on `startTimer`, and `stopTimer` without `startTimer` returns `0` silently. |
-| 5.23 | `tiles/TileEntityEnvironmentScanner.java` | `updateEntity` calls `getBiomeGenForCoords` three times per tick per scanner; `getMethodNames` exposes both `getTemperature` and `getTemp` returning the same value; the turtle constructor never updates `yCoord`. |
-| 5.24 | `tiles/TileEntityOreDictionary.java:163` | The whole `callMethod` is wrapped in `catch (Exception e) { printStackTrace(); }` → every `LuaException` is converted into a silent `nil` return. `transmute` has a dead `i` counter. `getMethodNames()` returns an empty array for the (placeable) block variant. |
+| 5.17 ✅ | `lua/LuaObjectPeripheralWrap.java:31` | `wrapPeripheral(name)` passes `getPeripheralByName(name)`, which returns `null` for an unknown name → NPE inside `getMethodNames()` instead of a `LuaException`. Same in `PeripheralPeripheralContainer:79`. |
+| 5.18 ✅ | `tiles/TileEntityAIChatBox.java:130` | `sessions` is never pruned on `invalidate()`; each `BotSessionLuaObject` holds a `ChatterBot`/`ChatterBotSession` for the JVM lifetime. `computers` is an `ArrayList` mutated from `attach`/`detach` and iterated from the `AIChatRequest` worker thread. |
+| 5.19 ✅ | `tiles/TileEntityAIChatBox.java:262` | `ArgumentHelper.stringToUUID` calls `UUID.fromString` unguarded → `IllegalArgumentException`, not `LuaException`. `ArgumentHelper.getBotType`/`stringToType` are unused. |
+| 5.20 ✅ | `tiles/TileEntitySpeaker.java:105` | `packetInfo` is a single shared 4-element buffer; two `speak()` calls in the same tick drop the first. `synthesize`'s `range` is unclamped (same class of bug as 5.8). |
+| 5.21 ✅ | `tiles/TileEntitySpeaker.java:200` | `onSpeechCompletion` broadcasts to *every* computer with `eventTicker == 0 \|\| !lastMessage.equals(text)`, so a second speaker's completion event can unlock the wrong coroutine. |
+| 5.22 ✅ | `tiles/TileEntityTimeSensor.java:52` | `new SimpleDateFormat(...)` per call with the default locale/timezone; `getDate` is TZ-dependent while `getTime` is epoch ms. `profiler` is not cleared on `startTimer`, and `stopTimer` without `startTimer` returns `0` silently. |
+| 5.23 ✅ | `tiles/TileEntityEnvironmentScanner.java` | `updateEntity` calls `getBiomeGenForCoords` three times per tick per scanner; `getMethodNames` exposes both `getTemperature` and `getTemp` returning the same value; the turtle constructor never updates `yCoord`. |
+| 5.24 ✅ | `tiles/TileEntityOreDictionary.java:163` | The whole `callMethod` is wrapped in `catch (Exception e) { printStackTrace(); }` → every `LuaException` is converted into a silent `nil` return. `transmute` has a dead `i` counter. `getMethodNames()` returns an empty array for the (placeable) block variant. |
 | 5.25 | `tiles/MountedTileEntity*.java` | `getStackInSlotOnClosing` overrides are now redundant with CF 1.0.1 (§2.2). |
-| 5.26 | `event/handler/PeripheralContainerHandler.java:27` | `Block.getBlockById(id)` can be `null` (removed mod) → `new ItemStack((Block) null)` and a NPE at `peripheral.createTileEntity`. Runs on both sides (no `isRemote` guard) and rebuilds the tooltip on every right-click. |
-| 5.27 | `event/handler/PocketComputerCraftingHandler.java:77` | `getCraftingResult` calls `findUpgradeItem` into the `upgrade` local on every inventory slot; when a non-upgrade slot is found the method returns `null` **after** having already written `upgrade` from a previous slot. It also removes `instanceID`/`sessionID`, which is correct for a fresh computer, but the `matches()` capacity check is `> max` while `getCraftingResult` also uses `>`, so `max + 1` peripherals fit. |
-| 5.28 | `event/handler/RobotHandler.java:80` | `KeyBoardOperation.getKeyField()` returns `null` on `NoSuchFieldException` and the caller catches only `IllegalAccessException` → NPE for an unknown key name. `RobotOperation` with `Config.secondsBeforeReversal <= 0` never calls `operate()`. |
-| 5.29 | `event/handler/SmartHelmetHandler.java:35` | `UUID.fromString(…getString("identifier"))` throws `IllegalArgumentException` when the identifier tag exists but is empty (only `hasTag` is checked). |
-| 5.30 | `smarthelmet/HelmetCommand.java:31` | `getCommandFromName` does `Class.forName("…smarthelmet." + name).newInstance()` on a string that arrives **from the network** (`CommandPacket.fromBytes`). A server can instantiate any class in that package; and it is a reflective allocation per HUD command per packet. Replace with a registry/enum. |
-| 5.31 | `smarthelmet/MessageCommand.java:13` | `messageStack` is `static`, so every smart-helmet wearer on a client shares one message list; `readFromNBT` clears the global stack. `writeToNBT` NPEs when `messageStacks.get(player)` is `null`. |
-| 5.32 | `entities/EntityRidableTurtle.java:36` | A common (both-sides) class imports `net.minecraft.client.Minecraft` and `org.lwjgl.input.Keyboard`. All uses are guarded by `worldObj.isRemote`, which works only because Java resolves those classes lazily; a single refactor that drops a guard is a `NoClassDefFoundError` on the dedicated server. Move to a `@SideOnly(Side.CLIENT)` helper. |
-| 5.33 | `entities/EntityRidableTurtle.java:79` | `item.isItemEqual(new ItemStack(Items.carrot_on_a_stick))` allocates an `ItemStack` **every tick** per ridden turtle. `moveTurtle` ignores `consumeFuel`'s return value and only checks `isAirBlock` (no collision). |
-| 5.34 | `entities/NanoProperties.java:29` | `saveNBTData` uses a `try/catch (NullPointerException)` to test for a null `antennaID`, and `loadNBTData` registers into `TileEntityAntenna.antenna_registry` (a static map) from the entity NBT load path. |
-| 5.35 | `blocks/BlockContainerPPP.java:64` | `dropItems` unconditionally casts the tile entity to `IInventory` → CCE for any `BlockContainerPPP` whose tile is not an inventory. Allocates `new Random()` per dropped item. Sets `itemStack.stackSize = 0` instead of clearing the slot. |
-| 5.36 | `blocks/BlockMEBridge.java:26` | `onBlockPlacedBy` casts `world.getTileEntity(x,y,z)` to `TileEntityMEBridge` without a null/type check, and `ModBlocks.meBridge` is created **eagerly** in the `ModBlocks` static initialiser even when AE2 is absent (every other optional block is created lazily). |
-| 5.37 | `init/ModBlocks.java:73` vs `proxy/CommonProxy.java:60` | The RF charger block is registered only for `ThermalExpansion`, the tile entity for `ThermalExpansion` **or** `BuildCraft|Core`. In a BC-only pack the recipe (`init/Recipes.java:62`) builds `new ItemStack((Block) null)`. |
-| 5.38 | `init/Recipes.java:281` | `new ItemStack(ModItems.permCard), new ItemStack(ModItems.permCard)` — a shapeless 1:1 recipe that resets a permission card by destroying its NBT; it also matches itself as an ingredient, which some recipe viewers render as a cycle. |
-| 5.39 | `init/Recipes.java:58-74` | Dangling `else` (`if (Config.enableRFCharger) if (Loader…ThermalExpansion) … else if (Loader…BuildCraft)`). Correct today, unreadable, and the `new ItemStack(ModBlocks.rfCharger)` can be a null-item stack (5.37). |
-| 5.40 | `network/CommandPacket.java:55` | `HelmetCommand.getCommandFromName` can return `null` (unknown type) and `command.readFromNBT` then NPEs inside the `try` — the NPE is logged and `commands[i]` stays `null`, so a corrupt packet becomes a silent no-op instead of a disconnect. |
+| 5.26 ✅ | `event/handler/PeripheralContainerHandler.java:27` | `Block.getBlockById(id)` can be `null` (removed mod) → `new ItemStack((Block) null)` and a NPE at `peripheral.createTileEntity`. Runs on both sides (no `isRemote` guard) and rebuilds the tooltip on every right-click. |
+| 5.27 ✅ | `event/handler/PocketComputerCraftingHandler.java:77` | `getCraftingResult` calls `findUpgradeItem` into the `upgrade` local on every inventory slot; when a non-upgrade slot is found the method returns `null` **after** having already written `upgrade` from a previous slot. It also removes `instanceID`/`sessionID`, which is correct for a fresh computer, but the `matches()` capacity check is `> max` while `getCraftingResult` also uses `>`, so `max + 1` peripherals fit. |
+| 5.28 ✅ | `event/handler/RobotHandler.java:80` | `KeyBoardOperation.getKeyField()` returns `null` on `NoSuchFieldException` and the caller catches only `IllegalAccessException` → NPE for an unknown key name. `RobotOperation` with `Config.secondsBeforeReversal <= 0` never calls `operate()`. |
+| 5.29 ✅ | `event/handler/SmartHelmetHandler.java:35` | `UUID.fromString(…getString("identifier"))` throws `IllegalArgumentException` when the identifier tag exists but is empty (only `hasTag` is checked). |
+| 5.30 ✅ | `smarthelmet/HelmetCommand.java:31` | `getCommandFromName` does `Class.forName("…smarthelmet." + name).newInstance()` on a string that arrives **from the network** (`CommandPacket.fromBytes`). A server can instantiate any class in that package; and it is a reflective allocation per HUD command per packet. Replace with a registry/enum. |
+| 5.31 ✅ | `smarthelmet/MessageCommand.java:13` | `messageStack` is `static`, so every smart-helmet wearer on a client shares one message list; `readFromNBT` clears the global stack. `writeToNBT` NPEs when `messageStacks.get(player)` is `null`. |
+| 5.32 ✅ | `entities/EntityRidableTurtle.java:36` | A common (both-sides) class imports `net.minecraft.client.Minecraft` and `org.lwjgl.input.Keyboard`. All uses are guarded by `worldObj.isRemote`, which works only because Java resolves those classes lazily; a single refactor that drops a guard is a `NoClassDefFoundError` on the dedicated server. Move to a `@SideOnly(Side.CLIENT)` helper. |
+| 5.33 ✅ | `entities/EntityRidableTurtle.java:79` | `item.isItemEqual(new ItemStack(Items.carrot_on_a_stick))` allocates an `ItemStack` **every tick** per ridden turtle. `moveTurtle` ignores `consumeFuel`'s return value and only checks `isAirBlock` (no collision). |
+| 5.34 ✅ | `entities/NanoProperties.java:29` | `saveNBTData` uses a `try/catch (NullPointerException)` to test for a null `antennaID`, and `loadNBTData` registers into `TileEntityAntenna.antenna_registry` (a static map) from the entity NBT load path. |
+| 5.35 ✅ | `blocks/BlockContainerPPP.java:64` | `dropItems` unconditionally casts the tile entity to `IInventory` → CCE for any `BlockContainerPPP` whose tile is not an inventory. Allocates `new Random()` per dropped item. Sets `itemStack.stackSize = 0` instead of clearing the slot. |
+| 5.36 ✅ | `blocks/BlockMEBridge.java:26` | `onBlockPlacedBy` casts `world.getTileEntity(x,y,z)` to `TileEntityMEBridge` without a null/type check, and `ModBlocks.meBridge` is created **eagerly** in the `ModBlocks` static initialiser even when AE2 is absent (every other optional block is created lazily). |
+| 5.37 ✅ | `init/ModBlocks.java:73` vs `proxy/CommonProxy.java:60` | The RF charger block is registered only for `ThermalExpansion`, the tile entity for `ThermalExpansion` **or** `BuildCraft|Core`. In a BC-only pack the recipe (`init/Recipes.java:62`) builds `new ItemStack((Block) null)`. |
+| 5.38 ✅ | `init/Recipes.java:281` | `new ItemStack(ModItems.permCard), new ItemStack(ModItems.permCard)` — a shapeless 1:1 recipe that resets a permission card by destroying its NBT; it also matches itself as an ingredient, which some recipe viewers render as a cycle. |
+| 5.39 ✅ | `init/Recipes.java:58-74` | Dangling `else` (`if (Config.enableRFCharger) if (Loader…ThermalExpansion) … else if (Loader…BuildCraft)`). Correct today, unreadable, and the `new ItemStack(ModBlocks.rfCharger)` can be a null-item stack (5.37). |
+| 5.40 ✅ | `network/CommandPacket.java:55` | `HelmetCommand.getCommandFromName` can return `null` (unknown type) and `command.readFromNBT` then NPEs inside the `try` — the NPE is logged and `commands[i]` stays `null`, so a corrupt packet becomes a silent no-op instead of a disconnect. |
 | 5.41 | `network/AudioResponsePacket.java:48` | `MinecraftServer.getServer()` is dereferenced in `fromBytes`; safe today only because the packet is `Side.SERVER`-bound. `AudioPacket`/`SynthPacket` also carry an `int world` constructor parameter that is silently ignored (the dimension is re-derived from the position on the other side). |
 | 5.42 | `turtles/TurtleProjRed.java:56` | `getProjRedTool` builds `new ItemStack(GameRegistry.findItem(...))`; a missing ProjectRed item yields a null-item stack, and `getIcon`/`useTool` then NPE. Same shape in `TurtleBluePower`. |
 | 5.43 | `turtles/TurtleRidable.java:100` | `update()` runs every turtle tick and calls `getEntity()`, which does a `getEntitiesWithinAABB` scan per tick **and** uses `throw new Exception` for the normal "not spawned yet" case. |
-| 5.44 | `turtles/peripherals/PeripheralBarrel.java:144` | `getOreDictEntries` builds `new ItemStack(ITEM_TYPE_STORED)` without a null check → NPE for an empty barrel. `case 0` can compute a negative `amount`. `case 1` compares with `new ItemStack(ITEM_TYPE_STORED)` (meta 0), so damaged items always mismatch. `getUnwrappedUnlocalizedName` is dead. `update()` rewrites the upgrade NBT every tick regardless of `changed`. |
-| 5.45 | `turtles/peripherals/PeripheralGarden.java` | Six near-identical blocks; `new ItemStack(Items.dye, 1, 15)` per call; `blockY = posY + +1` (double unary plus); `ItemDye.applyBonemeal(..., null)` passes a null player into third-party `IGrowable`s. |
-| 5.46 | `turtles/peripherals/PeripheralSignReader.java` | Three copies of the same 8 lines; the `TileEntitySign` cast is unchecked. |
-| 5.47 | `turtles/peripherals/PeripheralResupply.java:56` | `if (arguments.length < 1 \|\| (arguments.length > 1 && arguments.length < 3))` rejects exactly 2 arguments with "Too few arguments"; the link is world-scoped only, so a turtle that changes dimension keeps a stale link. |
-| 5.48 | `pocket/peripherals/PeripheralPeripheralContainer.java:88` | `getPeripherals()` allocates a new `ArrayList` on every call, and `callMethod` calls it up to three times per invocation. |
+| 5.44 ✅ | `turtles/peripherals/PeripheralBarrel.java:144` | `getOreDictEntries` builds `new ItemStack(ITEM_TYPE_STORED)` without a null check → NPE for an empty barrel. `case 0` can compute a negative `amount`. `case 1` compares with `new ItemStack(ITEM_TYPE_STORED)` (meta 0), so damaged items always mismatch. `getUnwrappedUnlocalizedName` is dead. `update()` rewrites the upgrade NBT every tick regardless of `changed`. |
+| 5.45 ✅ | `turtles/peripherals/PeripheralGarden.java` | Six near-identical blocks; `new ItemStack(Items.dye, 1, 15)` per call; `blockY = posY + +1` (double unary plus); `ItemDye.applyBonemeal(..., null)` passes a null player into third-party `IGrowable`s. |
+| 5.46 ✅ | `turtles/peripherals/PeripheralSignReader.java` | Three copies of the same 8 lines; the `TileEntitySign` cast is unchecked. |
+| 5.47 ✅ | `turtles/peripherals/PeripheralResupply.java:56` | `if (arguments.length < 1 \|\| (arguments.length > 1 && arguments.length < 3))` rejects exactly 2 arguments with "Too few arguments"; the link is world-scoped only, so a turtle that changes dimension keeps a stale link. |
+| 5.48 ✅ | `pocket/peripherals/PeripheralPeripheralContainer.java:88` | `getPeripherals()` allocates a new `ArrayList` on every call, and `callMethod` calls it up to three times per invocation. |
 
 ---
 
@@ -510,8 +511,8 @@ use). Either case is an NPE on every `push`/`retrieve`. Also `pushToSlot` requir
 
 | # | Location | Finding |
 |---|---|---|
-| 6.1 | 24 sites | `e.printStackTrace()` instead of the mod logger (`RobotHandler`, `AudioPacket`, `SynthPacket`, `AudioResponsePacket`, `SynthResponsePacket`, `CommandPacket`, `TileEntityAIChatBox`, `TileEntityOreDictionary`, `TileEntityPlayerSensor`, `PeripheralTank`, …). `PeripheralsPlusPlus.LOGGER` exists and is already used in `DynamicMount`. |
-| 6.2 | `PeripheralsPlusPlus.java:214` | `SimpleRunnable.RESTRICT_THREAD_USAGE = false` — deprecated no-op in CF 1.0.1. Delete. |
+| 6.1 ✅ | 24 sites | `e.printStackTrace()` instead of the mod logger (`RobotHandler`, `AudioPacket`, `SynthPacket`, `AudioResponsePacket`, `SynthResponsePacket`, `CommandPacket`, `TileEntityAIChatBox`, `TileEntityOreDictionary`, `TileEntityPlayerSensor`, `PeripheralTank`, …). `PeripheralsPlusPlus.LOGGER` exists and is already used in `DynamicMount`. |
+| 6.2 ✅ | `PeripheralsPlusPlus.java:214` | `SimpleRunnable.RESTRICT_THREAD_USAGE = false` — deprecated no-op in CF 1.0.1. Delete. |
 | 6.3 | 12 sites | `== null` / `!= null` checks written as `!(x == null)`; `if (a) if (b) if (c)` chains up to 5 deep (`ComputerCraftHooks.onPlayerInteract`, `SmartHelmetHandler`, `CommonProxy`). |
 | 6.4 | 11 classes | `public boolean equals(IPeripheral other) { return (this == other); }` and `return (other == this);` — identical, both used. Standardise. |
 | 6.5 | every peripheral | `getMethodNames()` allocates a fresh `String[]` on every call. CC calls it on every method lookup; cache as a `private static final String[]`. |
@@ -520,22 +521,22 @@ use). Either case is an NPE on every `push`/`retrieve`. Also `pushToSlot` requir
 | 6.8 | `tiles/TileEntityMEBridge.java:227` + `TileEntityInteractiveSorter.java:215` | Identical `getDefaultSlots`/`isInventoryOnSide`/`getInventoryForSide`. `block instanceof IInventory` is dead in both (a `Block` is never an `IInventory`). |
 | 6.9 | `tiles/TileEntityTeleporter.java:206`, `TileEntityPlayerSensor.java:146` | `// FIXME idk what I'm doing` on `equals`. Now correct, comment should go. |
 | 6.10 | `reference/Config.java:9` | `exclude = { "enableAPIs", "ENABLE_CONFIG_MESSAGE" }` — `enableAPIs` is read nowhere (dead option), `ENABLE_CONFIG_MESSAGE` is `private static final` and already skipped by CF 1.0.1. |
-| 6.11 | `reference/Config.java:141` | `enableAPIs` is `public static boolean` with a `@Description` but is excluded from the file and never read. |
-| 6.12 | `reference/Reference.java:36` | `TANK_UPGRADE = 126; // TODO Remember to update the id list on the wiki`. Also `GUI_FACTORY_CLASS` points at `client/gui/GUIFactory` which does not exist (it is commented out of `@Mod`). |
+| 6.11 ✅ | `reference/Config.java:141` | `enableAPIs` is `public static boolean` with a `@Description` but is excluded from the file and never read. |
+| 6.12 ✅ | `reference/Reference.java:36` | `TANK_UPGRADE = 126; // TODO Remember to update the id list on the wiki`. Also `GUI_FACTORY_CLASS` points at `client/gui/GUIFactory` which does not exist (it is commented out of `@Mod`). |
 | 6.13 | `reference/Reference.java:22` | `FIRST_UNRESERVED_POCKET_UPGRADE_ID = IPocketUpgrade.FIRST_MOD_UPGRADE_ID` (7) is correct, but `registerPocketUpgrade` re-checks `<` instead of `<=` via a second constant; `MOTION_DETECTOR = 7` / `PERIPHERAL_CONTAINER = 8` are then fine only because 7 is legal. |
 | 6.14 | `client/gui/GuiHandler.java:24` | `(IInventory) world.getTileEntity(x, y, z)` unchecked → CCE when the block was replaced. |
 | 6.15 | `tiles/TileEntityNoteBlock.java:129` | Uses `Location#toChunkCoordinates()`, deprecated in CF 1.0.1. |
-| 6.16 | `client/models/ItemRenderTurtle.java` | Dead class — byte-identical to `ItemRenderAntenna` (only the class name differs) and imported but not used by `ClientProxy`. |
+| 6.16 ✅ | `client/models/ItemRenderTurtle.java` | Dead class — byte-identical to `ItemRenderAntenna` (only the class name differs) and imported but not used by `ClientProxy`. |
 | 6.17 | `client/models/ItemRenderTurtle`, `ModelTurtle`, `ModelNanoBotSwarm` | `ItemRendererHelper`/`GL11` usage never resets state (`glPushMatrix`/`glPopMatrix` missing around `glTranslatef`). |
-| 6.18 | `tiles/containers/ContainerEmpty.java` | Dead class ("Empty container class for GuiContainer because Panda is lazy"). |
-| 6.19 | `src/main/java/com/gtranslate/**` | 10 files of vendored third-party code (`gtranslate`) inside the mod package with no licence header and no attribution in `LICENSE`/`mcmod.info`. Either move to a `embedded(...)` dependency, or relocate under `com.austinv11.peripheralsplusplus.thirdparty` with the original licence. |
-| 6.20 | `PeripheralsPlusPlus.java:107` | `ConfigRegistry.registerConfig` failure logs "Fatal problem…" then only calls `printStackTrace()` — the mod continues with an unloaded config (all defaults, which is fine, but the log says fatal). |
+| 6.18 ✅ | `tiles/containers/ContainerEmpty.java` | Dead class ("Empty container class for GuiContainer because Panda is lazy"). |
+| 6.19 ✅ | `src/main/java/com/gtranslate/**` | 10 files of vendored third-party code (`gtranslate`) inside the mod package with no licence header and no attribution in `LICENSE`/`mcmod.info`. Either move to a `embedded(...)` dependency, or relocate under `com.austinv11.peripheralsplusplus.thirdparty` with the original licence. |
+| 6.20 ✅ | `PeripheralsPlusPlus.java:107` | `ConfigRegistry.registerConfig` failure logs "Fatal problem…" then only calls `printStackTrace()` — the mod continues with an unloaded config (all defaults, which is fine, but the log says fatal). |
 | 6.21 | `PeripheralsPlusPlus.java:187` | `try { … } catch (Exception e) { e.printStackTrace(); }` around both pocket-upgrade registrations: a failure leaves the mod half-registered with no user-visible error. |
 | 6.22 | `PeripheralsPlusPlus.java:226-283` | 60 lines of commented-out `registerRedPowerLikeUpgrades` implementation. |
 | 6.23 | `PeripheralsPlusPlus.java:64` | `dependencies = "required-after:ComputerCraft@[3.3.0,)"` — the mod is built against 3.3.1 and uses the CC3-only `IPeripheralTargeted`/`IPocketUpgrade`/`MethodResult` APIs, so `3.3.0` is only correct because 3.3.0 already had those. Consider `[3.3.0,4.0)` and pinning in `mcmod.info`. |
 | 6.24 | `gradle.properties` | `usesMixinDebug = true` ships mixin export flags in the release task. |
 | 6.25 | `.github/workflows/build-and-test.yml` | `client-only: true` — the reusable workflow's server step is skipped, so **no CI job ever boots a dedicated server**. §10.6. |
-| 6.26 | `README.md` | Still carries the 2015 banner "Deprecated! See PeripheralsPlusOne" and a dead `drone.io` badge; contradicts the maintained fork. |
+| 6.26 ✅ | `README.md` | Still carries the 2015 banner "Deprecated! See PeripheralsPlusOne" and a dead `drone.io` badge; contradicts the maintained fork. |
 | 6.27 | class naming | `TileEntityrfCharger` (`name` field), `TurtleUtils` vs `TurtleUtil` (two utility classes, one of which has a `getTurtle` and the other a `getPeripheral`), `MountedTileEntity` vs `MountedPeripheral` (not siblings). |
 | 6.28 | `lua/**` | `LuaObjectHUD` duplicates `DrawRectangleCommand` construction four times; `AddButtonCommand`/`AddTextFieldCommand` argument validation is copy-pasted 30+ times. A `LuaArguments` helper (`getDouble(i)`, `getString(i, default)`, …) would remove ~600 lines and fix §4.6/§5.31 in one place. |
 
@@ -738,7 +739,7 @@ registration, villager trades, entity spawning. These are covered by the gameTes
 
 ### 10.3 Test-class matrix
 
-Landed (103 tests, `./gradlew test`):
+Landed (141 tests, `./gradlew test`):
 
 | Test class | Source under test | Tests | Guards |
 |---|---|---:|---|
@@ -750,6 +751,10 @@ Landed (103 tests, `./gradlew test`):
 | `tiles/PlayerSensorTest` | `tiles/TileEntityPlayerSensor` | 12 | range, Euclidean distance, ordering (§4.13) |
 | `tiles/TeleporterTest` | `tiles/TileEntityTeleporter` | 7 | NBT round-trip, link retention, 1-based table (§4.12) |
 | `turtles/DropCollectorTest` | `turtles/TurtleDropCollector` | 6 | bounded map, single listener (§4.16) |
+| `util/TurtleUtilTest` | `utils/TurtleUtil` | 7 | closest-entity distance ordering (§5.2) |
+| `smarthelmet/HelmetCommandTest` | `smarthelmet/*` | 7 | registry instead of reflection, NBT round-trip (§5.30) |
+| `tiles/TimeSensorTest` | `tiles/TileEntityTimeSensor` | 8 | calendar fields, timer lifecycle (§5.22) |
+| `turtles/BarrelTest` | `turtles/peripherals/PeripheralBarrel` | 9 | empty-barrel NPE, meta matching, no per-tick NBT (§5.44) |
 | `network/PacketCodecTest` | `network/*` | 6 | `toBytes`/`fromBytes` round-trip, incl. `SynthPacket.rate` (§4.5) |
 | `reference/ReferenceTest` | `reference/Reference` | 6 | turtle/pocket id uniqueness and ranges, proxy classes |
 
@@ -779,8 +784,8 @@ Target list, in descending value/effort, to reach the 65 % ratchet:
 
 ### 10.4 Coverage gates
 
-The floor in `addon.gradle.kts` is **7 % line / 7 % branch**, just under the measured baseline
-(489 / 6450 lines, 258 / 3379 branches). It is a *regression guard*, not a target, and `check` depends on it so CI
+The floor in `addon.gradle.kts` is **11 % line / 10 % branch**, just under the measured baseline
+(780 / 6406 lines, 361 / 3434 branches). It is a *regression guard*, not a target, and `check` depends on it so CI
 cannot drift downwards.
 
 Ratchet plan — raise the floor in the same PR that adds each row above:
@@ -788,7 +793,8 @@ Ratchet plan — raise the floor in the same PR that adds each row above:
 | Milestone | Line | Branch |
 |---|---:|---:|
 | batch 1 (harness landing) | 4 % | 4 % |
-| batch 2 (now) | 7 % | 7 % |
+| batch 2 | 7 % | 7 % |
+| batch 3 (now) | 11 % | 10 % |
 | after the chat box/Lua-object tests | 15 % | 12 % |
 | after Phase 1–2 refactors (§9) | 35 % | 25 % |
 | steady state | 65 % | 50 % |
@@ -976,3 +982,67 @@ closed the rest of the P1 list.
 | `addon.gradle.kts` | coverage floor raised 4 % → 7 % |
 
 Test suite: **103 tests in 10 classes**, line coverage **7.6 %** (489/6450), branch **7.6 %**, `./gradlew check` green.
+
+## 15. Appendix E — batch 3 (section 5 P2: robustness, thread safety, duplication)
+
+Closed 39 of the 48 P2 items.
+
+**Thread safety (§5.11).** Every static collection that is written from a non-server thread is concurrent now:
+`GuiHelmet.renderStack`, `GuiSmartHelmetOverlay.renderStack` (written by the netty packet handler, read on the client
+tick), `CreativeTabPPP.upgrades`, `MessageCommand.messageStacks`, `TileEntityAntenna.antenna_registry`/`computers`/
+`huds`/`associatedEntities`, `TileEntityChatBox.chatBoxMap`, `ComputerCraftRegistry.pocketUpgrades`. Both GUI map
+reads are now a single `get` instead of `containsKey` + `get`.
+
+**Registry misuse (§5.11 cont).** `ComputerCraftRegistry.craftingRecipes` was a `HashMap<ItemStack, Integer>`,
+iterated with `isItemEqual`. `ItemStack` does not override `hashCode`, so equal items collided by identity and the map
+was never actually a lookup. It is a registration-ordered `List` now, with `findUpgradeFor(ItemStack)`.
+
+**No reflection from the network (§5.30, §5.40).** `HelmetCommand` is a `LinkedHashMap`-backed registry of factories;
+an unknown wire name is logged and dropped, and a corrupt packet can no longer leave a null slot that NPEs later.
+`NBTTagCompound#setString` rejects `""`, and `readFromNBT` returns `""` for a missing key, so re-serialising a command
+threw `IllegalArgumentException` on the server thread — `HelmetCommand#writeString` tolerates it, and
+`DrawRectangleCommand` no longer NPEs on a null colour.
+
+**Per-player state (§5.31).** `MessageCommand` lines travel in the command's own NBT list instead of a shared static
+`Stack`, so two helmet wearers no longer see each other's messages and a message containing a comma survives.
+
+**Input (§5.32, §5.33).** All client calls moved to `client/RidableTurtleInput` (`@SideOnly`); `EntityRidableTurtle`
+no longer imports `Minecraft`/`Keyboard`, and the per-tick `new ItemStack(Items.carrot_on_a_stick)` allocation is a
+cached constant.
+
+**Per-tick cost (§5.22, §5.23, §5.44, §5.48).** `TileEntityTimeSensor` uses a `Calendar` instead of building a
+`SimpleDateFormat`; `TileEntityEnvironmentScanner` does one biome lookup instead of three and lost its duplicate
+`getTemperature`/`getTemp` method pair (a Lua API change: the method list is now 4 entries); `PeripheralBarrel#update`
+only touches NBT when something changed; `PeripheralPeripheralContainer` stopped allocating a `List` per call.
+
+**Correctness.** `Util.compare` resolves ore ids once per stack; `Util.getPlayer`/`getPlayers` null-guard the server
+and use `getCommandSenderName()`; `TurtleUtil.getClosestEntity`/`getClosestShearableEntity` share one implementation
+that actually tracks the closest distance (they returned the *last* candidate); `LuaObjectPeripheralWrap` and both
+containers raise "no such peripheral" instead of NPE-ing; `LuaObjectHUD` handles a logged-off player and no longer
+drains its command deque on send; `TileEntityAntenna`'s config flags gate the right halves of the API; the pocket
+crafting recipe and the container tooltip handler are null-safe; `PeripheralResupply` accepts `link(x, y, z)` and
+refuses a cross-dimension link; `PeripheralSignReader`/`PeripheralGarden` collapsed from three/six copies to one
+implementation each.
+
+**Registration (§5.35–§5.39).** `BlockContainerPPP#dropItems` no longer cast-fails on a non-inventory tile, allocates
+one `Random` per block instead of per item, and clears the slot instead of zeroing the stack size. `ModBlocks.meBridge`
+is created lazily like every other optional block; the RF charger block is registered for BuildCraft as well as
+ThermalExpansion (the tile entity already was); the AE recipe is guarded on the block existing; the permission card's
+1:1 self-recipe is gone.
+
+**Tests.** 103 → **141** in 14 classes. New: `TurtleUtilTest` (7), `HelmetCommandTest` (7), `TimeSensorTest` (8),
+`BarrelTest` (9), plus `InventoryUtils.at` and four `CommandPacket` codec cases. Coverage floor 7 % → **11 % line /
+10 % branch** (measured 12.2 % / 10.5 %).
+
+**Still open** (8 of 48, all minor):
+
+| # | Remaining work |
+|---|---|
+| §5.7 | `ChatUtil.getPlayer` still matches on `getDisplayName()`; it needs the same `getCommandSenderName()` change as `Util` |
+| §5.8 | `TileEntityChatBox.tell` still does not clamp its range to `Config.sayRange` (it needs `ChatUtil` to expose the clamp) |
+| §5.15 | (superseded by the batch-2 `LuaObjectPlayerInv` rewrite — the row is stale and should be struck) |
+| §5.16 | (superseded by the batch-2 `InventoryUtils.move` rewrite — the row is stale) |
+| §5.25 | The `getStackInSlotOnClosing` override is kept for its `markDirty()` side effect; delete once the container logic moves to `InventoryUtils` |
+| §5.41 | The unused `world` constructor parameter on `AudioPacket`/`SynthPacket` |
+| §5.42 | `TurtleProjRed.getProjRedTool` still builds an `ItemStack` from a possibly-missing registry item |
+| §5.43 | `TurtleRidable.update` still does an AABB scan per tick and uses an exception for the "not spawned yet" case |

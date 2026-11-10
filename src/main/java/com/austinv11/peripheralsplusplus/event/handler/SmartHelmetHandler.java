@@ -71,8 +71,10 @@ public class SmartHelmetHandler {
 
     private boolean checkSmartHelmetStatus() {
         ItemStack helmet = Minecraft.getMinecraft().thePlayer.getCurrentArmor(3);
-        if (helmet != null)
-            if (helmet.getItem() instanceof ItemSmartHelmet) if (NBTHelper.hasTag(helmet, "identifier")) return true;
+        if (helmet != null) if (helmet.getItem() instanceof ItemSmartHelmet) if (NBTHelper.hasTag(helmet, "identifier"))
+            // hasTag is true for an empty string, which UUID.fromString rejects.
+            return !NBTHelper.getString(helmet, "identifier")
+                .isEmpty();
         return false;
     }
 }

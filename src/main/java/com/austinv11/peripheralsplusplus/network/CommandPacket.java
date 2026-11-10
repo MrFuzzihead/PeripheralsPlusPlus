@@ -5,6 +5,7 @@ import java.util.UUID;
 
 import net.minecraft.nbt.NBTTagCompound;
 
+import com.austinv11.peripheralsplusplus.PeripheralsPlusPlus;
 import com.austinv11.peripheralsplusplus.client.gui.GuiHelmet;
 import com.austinv11.peripheralsplusplus.client.gui.GuiSmartHelmetOverlay;
 import com.austinv11.peripheralsplusplus.smarthelmet.HelmetCommand;
@@ -42,18 +43,31 @@ public class CommandPacket implements IMessage {
     @Override
     public void fromBytes(ByteBuf buf) {
         NBTTagCompound tagCompound = ByteBufUtils.readTag(buf);
-        uuid = UUID.fromString(tagCompound.getString("uuid"));
-        int num = tagCompound.getInteger("num");
+        String rawUuid = tagCompound.getString("uuid");
+        if (rawUuid.isEmpty()) {
+            uuid = null;
+        } else {
+            try {
+                uuid = UUID.fromString(rawUuid);
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("CommandPacket carries a malformed uuid", e);
+            }
+        }
+        int num = Math.max(0, tagCompound.getInteger("num"));
         commands = new HelmetCommand[num];
         for (int i = 0; i < num; i++) {
             NBTTagCompound tag = tagCompound.getCompoundTag(i + "");
-            HelmetCommand command = null;
+            HelmetCommand command = HelmetCommand.getCommandFromName(tag.getString("type"));
+            if (command == null) {
+                PeripheralsPlusPlus.LOGGER
+                    .error("Ignoring unknown helmet command type '" + tag.getString("type") + "'");
+                continue;
+            }
             try {
-                command = HelmetCommand.getCommandFromName(tag.getString("type"));
                 command.readFromNBT(tag.getCompoundTag("command"));
                 commands[i] = command;
-            } catch (Exception e) {
-                e.printStackTrace();
+            } catch (RuntimeException e) {
+                PeripheralsPlusPlus.LOGGER.error("Ignoring malformed helmet command: " + e.getMessage());
             }
         }
         doAdd = tagCompound.getBoolean("doAdd");
@@ -63,9 +77,10 @@ public class CommandPacket implements IMessage {
     @Override
     public void toBytes(ByteBuf buf) {
         NBTTagCompound tagCompound = new NBTTagCompound();
-        tagCompound.setString("uuid", uuid.toString());
-        tagCompound.setInteger("num", commands.length);
-        for (int i = 0; i < commands.length; i++) {
+        // An absent uuid reads back as null on the other side.
+        if (uuid != null) tagCompound.setString("uuid", uuid.toString());
+        tagCompound.setInteger("num", commands == null ? 0 : commands.length);
+        for (int i = 0; commands != null && i < commands.length; i++) {
             if (commands[i] == null) continue;
             NBTTagCompound tag = new NBTTagCompound();
             tag.setString("type", commands[i].getCommandName());

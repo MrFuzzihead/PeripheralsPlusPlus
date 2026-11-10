@@ -51,13 +51,15 @@ public abstract class BlockContainerPPP extends BlockContainer {
 
     private void dropItems(World world, int x, int y, int z) {
         TileEntity tileEntity = world.getTileEntity(x, y, z);
+        // The unconditional cast used to blow up for any BlockContainerPPP whose tile is not an inventory.
+        if (!(tileEntity instanceof IInventory)) return;
         IInventory inventory = (IInventory) tileEntity;
+        Random random = new Random();
 
         for (int i = 0; i < inventory.getSizeInventory(); i++) {
             ItemStack itemStack = inventory.getStackInSlot(i);
 
             if (itemStack != null) {
-                Random random = new Random();
                 float dX = random.nextFloat() * 0.8F + 0.1F;
                 float dY = random.nextFloat() * 0.8F + 0.1F;
                 float dZ = random.nextFloat() * 0.8F + 0.1F;
@@ -75,7 +77,7 @@ public abstract class BlockContainerPPP extends BlockContainer {
                 entityItem.motionY = random.nextGaussian() * motionFactor + 0.2F;
                 entityItem.motionZ = random.nextGaussian() * motionFactor;
                 world.spawnEntityInWorld(entityItem);
-                itemStack.stackSize = 0;
+                inventory.setInventorySlotContents(i, null);
             }
         }
     }

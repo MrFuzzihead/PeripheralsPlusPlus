@@ -35,7 +35,7 @@ public class DrawStringCommand extends HelmetCommand {
 
     @Override
     public void writeToNBT(NBTTagCompound tagCompound) {
-        tagCompound.setString("message", message);
+        writeString(tagCompound, "message", message);
         tagCompound.setInteger("x", x);
         tagCompound.setInteger("y", y);
         tagCompound.setInteger("color", color);

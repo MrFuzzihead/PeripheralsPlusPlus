@@ -1,7 +1,7 @@
 package com.austinv11.peripheralsplusplus.creativetab;
 
-import java.util.LinkedList;
 import java.util.List;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import net.minecraft.creativetab.CreativeTabs;
 import net.minecraft.item.Item;
@@ -18,7 +18,7 @@ import dan200.computercraft.api.turtle.ITurtleUpgrade;
 
 public class CreativeTabPPP {
 
-    public static final List<ITurtleUpgrade> upgrades = new LinkedList<ITurtleUpgrade>();
+    public static final List<ITurtleUpgrade> upgrades = new CopyOnWriteArrayList<ITurtleUpgrade>();
 
     public static final CreativeTabs PPP_TAB = new CreativeTabs(Reference.MOD_ID.toLowerCase()) {
 

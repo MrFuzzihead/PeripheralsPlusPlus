@@ -4,6 +4,7 @@ import net.minecraft.nbt.NBTTagCompound;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.world.World;
 
+import com.austinv11.peripheralsplusplus.PeripheralsPlusPlus;
 import com.austinv11.peripheralsplusplus.tiles.TileEntitySpeaker;
 import com.austinv11.peripheralsplusplus.utils.TurtleUtils;
 
@@ -69,7 +70,7 @@ public class SynthResponsePacket implements IMessage {
                     .getTurtle(message.world.getTileEntity(message.x, message.y, message.z));
                 ((TileEntitySpeaker) turtle.getPeripheral(message.side)).onSpeechCompletion(message.text, null);
             } catch (Exception e) {
-                e.printStackTrace();
+                PeripheralsPlusPlus.LOGGER.error("Unable to resolve the speaker for a synthesis response: " + e);
             }
             return null;
         }

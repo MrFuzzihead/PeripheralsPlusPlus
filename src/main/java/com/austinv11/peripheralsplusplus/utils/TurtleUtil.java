@@ -56,26 +56,50 @@ public class TurtleUtil {
             .getEntitiesWithinAABBExcludingEntity(player, box);
     }
 
-    public static Entity getClosestShearableEntity(List<Entity> list, Entity ent) {
-        Vec3 from = Vec3.createVectorHelper(ent.posX, ent.posY, ent.posZ);
-        Entity returnVal = null;
-        double lastDistance = Double.MAX_VALUE;
-        for (Entity entity : list) if (entity instanceof IShearable) {
-            Vec3 to = Vec3.createVectorHelper(entity.posX, entity.posY, entity.posZ);
-            if (to.distanceTo(from) < lastDistance) returnVal = entity;
-        }
-        return returnVal;
+    /**
+     * The entity of the given type closest to {@code ent}.
+     *
+     * @param list the candidate entities
+     * @param ent  the reference entity
+     * @return the closest candidate, or {@code null} when the list holds none
+     */
+    public static Entity getClosestEntity(List<Entity> list, Entity ent) {
+        return getClosest(list, ent, null);
     }
 
-    public static Entity getClosestEntity(List<Entity> list, Entity ent) {
+    /**
+     * The shearable entity closest to {@code ent}.
+     *
+     * @param list the candidate entities
+     * @param ent  the reference entity
+     * @return the closest shearable candidate, or {@code null}
+     */
+    public static Entity getClosestShearableEntity(List<Entity> list, Entity ent) {
+        return getClosest(list, ent, IShearable.class);
+    }
+
+    /**
+     * @param list     the candidate entities
+     * @param ent      the reference entity
+     * @param required a type every candidate must implement, or {@code null}
+     * @return the closest matching entity, or {@code null}
+     */
+    private static Entity getClosest(List<Entity> list, Entity ent, Class<?> required) {
+        if (list == null || ent == null) return null;
         Vec3 from = Vec3.createVectorHelper(ent.posX, ent.posY, ent.posZ);
-        Entity returnVal = null;
-        double lastDistance = Double.MAX_VALUE;
-        for (Entity entity : list) {
-            Vec3 to = Vec3.createVectorHelper(entity.posX, entity.posY, entity.posZ);
-            if (to.distanceTo(from) < lastDistance) returnVal = entity;
+        Entity closest = null;
+        double closestDistance = Double.MAX_VALUE;
+        for (Entity candidate : list) {
+            if (required != null && !required.isInstance(candidate)) continue;
+            Vec3 to = Vec3.createVectorHelper(candidate.posX, candidate.posY, candidate.posZ);
+            double distance = to.distanceTo(from);
+            // closestDistance was never assigned, so this used to return whichever entity came last in the list.
+            if (distance < closestDistance) {
+                closestDistance = distance;
+                closest = candidate;
+            }
         }
-        return returnVal;
+        return closest;
     }
 
     public static void addItemListToInv(List<ItemStack> items, ITurtleAccess turtle) {

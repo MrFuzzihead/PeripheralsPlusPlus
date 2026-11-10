@@ -21,11 +21,8 @@ public class NanoProperties implements IExtendedEntityProperties {
     public void saveNBTData(NBTTagCompound compound) {
         NBTTagCompound tag = new NBTTagCompound();
         tag.setInteger("bots", numOfBots);
-        try {
-            tag.setString("antenna", antennaID.toString());
-        } catch (NullPointerException e) {
-            // antennaID is null meaning this entity has not yet been associated with any antenna.
-        }
+        // antennaID is null until the entity is associated with an antenna.
+        if (antennaID != null) tag.setString("antenna", antennaID.toString());
         compound.setTag(IDENTIFIER, tag);
     }
 

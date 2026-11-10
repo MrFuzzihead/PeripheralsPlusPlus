@@ -3,7 +3,10 @@ package com.austinv11.peripheralsplusplus.tiles;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
 
 import net.minecraft.entity.Entity;
 import net.minecraft.entity.player.EntityPlayer;
@@ -31,12 +34,14 @@ public class TileEntityAntenna extends MountedTileEntity {
     public static String publicName = "antenna";
     private String name = "tileEntityAntenna";
     private int world = 0;
-    public HashMap<IComputerAccess, Boolean> computers = new HashMap<IComputerAccess, Boolean>();
-    private HashMap<Integer, LuaObjectHUD> huds = new HashMap<Integer, LuaObjectHUD>();
-    public static HashMap<UUID, TileEntityAntenna> antenna_registry = new HashMap<UUID, TileEntityAntenna>();
+    /** Attached computers. Filled from computer threads, so it must be concurrent (CODE_REVIEW.md section 5.11). */
+    public final Map<IComputerAccess, Boolean> computers = new ConcurrentHashMap<IComputerAccess, Boolean>();
+    /** HUD handles by computer id. */
+    private final Map<Integer, LuaObjectHUD> huds = new ConcurrentHashMap<Integer, LuaObjectHUD>();
+    public static final Map<UUID, TileEntityAntenna> antenna_registry = new ConcurrentHashMap<UUID, TileEntityAntenna>();
     public UUID identifier;
     public String label;
-    public volatile List<Entity> associatedEntities = new ArrayList<Entity>();
+    public final List<Entity> associatedEntities = new CopyOnWriteArrayList<Entity>();
 
     public TileEntityAntenna() {
         super();
@@ -136,11 +141,14 @@ public class TileEntityAntenna extends MountedTileEntity {
                 }
             case 4:
                 HashMap<Integer, Integer> entities = new HashMap<Integer, Integer>();
-                for (int i = 0; i < associatedEntities.size(); i++) {
-                    entities.put(
-                        i + 1,
-                        associatedEntities.get(i)
-                            .getEntityId());
+                int i = 1;
+                for (Entity entity : associatedEntities) {
+                    // A despawned or killed entity kept reporting forever; drop it instead.
+                    if (entity == null || entity.isDead) {
+                        associatedEntities.remove(entity);
+                        continue;
+                    }
+                    entities.put(i++, entity.getEntityId());
                 }
                 return new Object[] { entities };
             case 5:
@@ -190,6 +198,8 @@ public class TileEntityAntenna extends MountedTileEntity {
     @Override
     public void detach(IComputerAccess computer) {
         computers.remove(computer);
+        // HUD handles are keyed by computer id; without this they accumulated for the tile entity's lifetime.
+        huds.remove(computer.getID());
         super.detach(computer);
     }
 

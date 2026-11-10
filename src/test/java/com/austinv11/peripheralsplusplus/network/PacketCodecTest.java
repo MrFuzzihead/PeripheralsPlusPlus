@@ -1,8 +1,16 @@
 package com.austinv11.peripheralsplusplus.network;
 
+import java.util.UUID;
+
+import net.minecraft.nbt.NBTTagCompound;
+
 import org.junit.Assert;
 import org.junit.Test;
 
+import com.austinv11.peripheralsplusplus.smarthelmet.DrawStringCommand;
+import com.austinv11.peripheralsplusplus.smarthelmet.HelmetCommand;
+
+import cpw.mods.fml.common.network.ByteBufUtils;
 import dan200.computercraft.api.turtle.TurtleSide;
 import io.netty.buffer.ByteBuf;
 import io.netty.buffer.Unpooled;
@@ -145,5 +153,77 @@ public class PacketCodecTest {
         decoded = new RobotEventPacket();
         decoded.fromBytes(buf);
         Assert.assertArrayEquals(new int[] { 12, 34 }, (int[]) decoded.info);
+    }
+
+    @Test
+    public void commandPacketRoundTripsItsCommands() {
+        UUID uuid = UUID.randomUUID();
+        DrawStringCommand command = new DrawStringCommand();
+        command.message = "hello";
+        command.x = 3;
+        command.y = 4;
+        command.color = 0xFFFFFFFF;
+        command.shadow = true;
+
+        CommandPacket out = new CommandPacket(new HelmetCommand[] { command }, uuid);
+        ByteBuf buf = Unpooled.buffer();
+        out.toBytes(buf);
+        CommandPacket in = new CommandPacket();
+        in.fromBytes(buf);
+
+        Assert.assertEquals(uuid, in.uuid);
+        Assert.assertEquals(1, in.commands.length);
+        Assert.assertNotNull(in.commands[0]);
+        Assert.assertEquals("DrawStringCommand", in.commands[0].getCommandName());
+    }
+
+    @Test
+    public void commandPacketIgnoresAnUnknownCommandType() {
+        // A server used to be able to name any class here; the registry drops unknown names instead.
+        NBTTagCompound tag = new NBTTagCompound();
+        tag.setString(
+            "uuid",
+            UUID.randomUUID()
+                .toString());
+        tag.setInteger("num", 1);
+        NBTTagCompound entry = new NBTTagCompound();
+        entry.setString("type", "NotACommand");
+        tag.setTag("0", entry);
+
+        ByteBuf buf = Unpooled.buffer();
+        ByteBufUtils.writeTag(buf, tag);
+
+        CommandPacket in = new CommandPacket();
+        in.fromBytes(buf);
+
+        Assert.assertEquals(1, in.commands.length);
+        Assert.assertNull(in.commands[0]);
+    }
+
+    @Test
+    public void commandPacketToleratesAMissingField() {
+        // A command whose string field was never set reads back as "", and re-serialising it used to throw
+        // IllegalArgumentException("Empty string not allowed") on the server thread.
+        DrawStringCommand empty = new DrawStringCommand();
+        ByteBuf buf = Unpooled.buffer();
+        new CommandPacket(new HelmetCommand[] { empty }, UUID.randomUUID()).toBytes(buf);
+        CommandPacket in = new CommandPacket();
+        in.fromBytes(buf);
+
+        ByteBuf second = Unpooled.buffer();
+        in.toBytes(second);
+        CommandPacket again = new CommandPacket();
+        again.fromBytes(second);
+        Assert.assertNotNull(again.commands[0]);
+    }
+
+    @Test
+    public void commandPacketSurvivesANullCommandArray() {
+        CommandPacket packet = new CommandPacket();
+        ByteBuf buf = Unpooled.buffer();
+        packet.toBytes(buf);
+        CommandPacket in = new CommandPacket();
+        in.fromBytes(buf);
+        Assert.assertEquals(0, in.commands.length);
     }
 }

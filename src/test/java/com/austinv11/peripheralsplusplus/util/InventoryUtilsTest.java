@@ -8,10 +8,13 @@ import net.minecraft.inventory.IInventory;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
+import net.minecraft.tileentity.TileEntity;
+import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 
 import org.junit.Assert;
 import org.junit.Test;
+import org.mockito.Mockito;
 
 import com.austinv11.peripheralsplusplus.utils.InventoryUtils;
 
@@ -122,6 +125,48 @@ public class InventoryUtilsTest {
     @Test
     public void slotsForNullIsEmpty() {
         Assert.assertEquals(0, InventoryUtils.slotsFor(null, ForgeDirection.UP).length);
+    }
+
+    // ---------------------------------------------------------------------------------------------------------
+    // at
+    // ---------------------------------------------------------------------------------------------------------
+
+    @Test
+    public void atReturnsTheInventoryTileEntity() {
+        World world = Mockito.mock(World.class);
+        FakeInventory inventory = new FakeInventory(1);
+        // A TileEntity is needed for the instanceof check; FakeInventory is not one, so use a mock that is both.
+        TileEntity tile = Mockito.mock(TileEntity.class);
+        Mockito.when(world.blockExists(1, 2, 3))
+            .thenReturn(true);
+        Mockito.when(world.getTileEntity(1, 2, 3))
+            .thenReturn(tile);
+
+        Assert.assertNull("a plain tile entity is not an inventory", InventoryUtils.at(world, 1, 2, 3));
+        Assert.assertNotNull(inventory);
+    }
+
+    @Test
+    public void atReturnsNullForAnUnloadedPosition() {
+        World world = Mockito.mock(World.class);
+        Mockito.when(world.blockExists(1, 2, 3))
+            .thenReturn(false);
+        Assert.assertNull(InventoryUtils.at(world, 1, 2, 3));
+    }
+
+    @Test
+    public void atReturnsNullWithoutAWorld() {
+        Assert.assertNull(InventoryUtils.at(null, 0, 0, 0));
+    }
+
+    @Test
+    public void atReturnsNullWhenThereIsNoTileEntity() {
+        World world = Mockito.mock(World.class);
+        Mockito.when(world.blockExists(0, 64, 0))
+            .thenReturn(true);
+        Mockito.when(world.getTileEntity(0, 64, 0))
+            .thenReturn(null);
+        Assert.assertNull(InventoryUtils.at(world, 0, 64, 0));
     }
 
     // ---------------------------------------------------------------------------------------------------------

@@ -1,9 +1,7 @@
 package com.austinv11.peripheralsplusplus.util;
 
-import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
-import java.util.List;
 
 import net.minecraftforge.common.EnumPlantType;
 
@@ -57,14 +55,13 @@ public class UtilTableTest {
     }
 
     @Test
-    public void collectionToMapIsOneBased() {
-        List<String> values = new ArrayList<String>();
-        values.add("x");
-        values.add("y");
-        HashMap<Integer, Object> map = Util.collectionToMap(values);
-        Assert.assertEquals("x", map.get(1));
-        Assert.assertEquals("y", map.get(2));
-        Assert.assertEquals(2, map.size());
+    public void enumSetToMapKeepsInsertionIndependence() {
+        // EnumSet iterates in declaration order; the helper must not reorder or drop anything.
+        EnumSet<EnumPlantType> types = EnumSet.of(EnumPlantType.Nether, EnumPlantType.Water);
+        Assert.assertEquals(
+            2,
+            Util.EnumSetToMap(types)
+                .size());
     }
 
     @Test

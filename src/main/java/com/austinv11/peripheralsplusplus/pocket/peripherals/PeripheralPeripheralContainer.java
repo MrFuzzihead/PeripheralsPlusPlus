@@ -1,8 +1,7 @@
 package com.austinv11.peripheralsplusplus.pocket.peripherals;
 
-import java.util.ArrayList;
+import java.util.Collection;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 import com.austinv11.peripheralsplusplus.lua.LuaObjectPeripheralWrap;
@@ -58,28 +57,30 @@ public class PeripheralPeripheralContainer extends MountedPeripheral {
         if (!Config.enablePeripheralContainer) throw new LuaException("Peripheral Containers have been disabled");
         if (method == 0) {
             HashMap<Integer, String> returnVals = new HashMap<Integer, String>();
-            List<IPeripheral> peripherals = getPeripherals();
-            for (int i = 0; i < peripherals.size(); i++) returnVals.put(
-                i + 1,
-                peripherals.get(i)
-                    .getType());
+            int i = 1;
+            for (IPeripheral peripheral : contained.values()) returnVals.put(i++, peripheral.getType());
             return new Object[] { returnVals };
         } else if (method == 1) {
             if (arguments.length < 1) throw new LuaException("Too few arguments");
             if (!(arguments[0] instanceof String)) throw new LuaException("Bad argument #1 (expected string)");
-            return new Object[] { new LuaObjectPeripheralWrap(getPeripheralByName((String) arguments[0]), computer) };
+            IPeripheral wrapped = getPeripheralByName((String) arguments[0]);
+            if (wrapped == null) throw new LuaException("No contained peripheral named " + arguments[0]);
+            return new Object[] { new LuaObjectPeripheralWrap(wrapped, computer) };
         }
         return new Object[0];
     }
 
     private IPeripheral getPeripheralByName(String argument) {
-        for (IPeripheral peripheral : getPeripherals()) if (peripheral.getType()
+        for (IPeripheral peripheral : contained.values()) if (peripheral.getType()
             .equals(argument)) return peripheral;
         return null;
     }
 
-    public List<IPeripheral> getPeripherals() {
-        return new ArrayList<IPeripheral>(contained.values());
+    /**
+     * @return the contained peripherals; a live view, so callers do not allocate on every Lua call
+     */
+    public Collection<IPeripheral> getPeripherals() {
+        return contained.values();
     }
 
     @Override
