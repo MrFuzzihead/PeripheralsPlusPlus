@@ -51,7 +51,7 @@ toolchain the plain tasks use.
 
 | Command | What it runs |
 |---|---|
-| `./gradlew test` | 167 headless JUnit 4 tests (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
+| `./gradlew test` | 204 headless JUnit 4 tests (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
 | `./gradlew check` | the above plus Spotless, Checkstyle, the coverage floor and the gameTest compile |
 | `./gradlew gameTestServer` | boots a real dedicated server and runs 158 in-game assertions, then exits with the result |
 | `./gradlew runServer25 -PsmokeTest` | boots a real server, prints `PERIPHERALSPLUSPLUS_SMOKE_TEST_OK` and exits |
@@ -61,8 +61,9 @@ block/item registries, the real peripheral provider, inventory moves against a r
 dictionary, and — against a real running ComputerCraft computer — the mount contract the `/ppp` docs depend on.
 
 
-`CODE_REVIEW.md` records the dependency audit, the bug/optimization/refactor backlog (all P0–P2 items fixed), the
-phased refactor plan and the test-coverage ratchet.
+`CODE_REVIEW.md` records the dependency audit, the bug/optimization/refactor backlog (every P0–P3 item is closed,
+with the deliberately-deferred ones and their reasons listed), the phased refactor plan and the test-coverage
+ratchet.
 
 ### Configuration
 

@@ -13,6 +13,7 @@ import net.minecraft.nbt.NBTTagList;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.Vec3;
 
+import com.austinv11.peripheralsplusplus.lua.LuaArgs;
 import com.austinv11.peripheralsplusplus.reference.Config;
 
 import dan200.computercraft.api.lua.ILuaContext;
@@ -130,19 +131,16 @@ public class PeripheralXP extends MountedPeripheral {// Beware, a lot of the mat
     }
 
     @Override
-    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] arguments)
+    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] rawArguments)
         throws LuaException, InterruptedException {
         if (!Config.enableXPTurtle) throw new LuaException("XP Turtles have been disabled");
+        LuaArgs arguments = LuaArgs.of(rawArguments);
         ItemStack slot;
         switch (method) {
             case 0:
                 slot = turtle.getInventory()
                     .getStackInSlot(turtle.getSelectedSlot());
-                int amount = Integer.MAX_VALUE;
-                if (arguments.length > 0) {
-                    if (!(arguments[0] instanceof Double)) throw new LuaException("Bad argument #1 (expected number)");
-                    amount = (int) Math.floor((Double) arguments[0]);
-                }
+                int amount = arguments.integer(0, Integer.MAX_VALUE);
                 if (slot == null) return new Object[] { 0 };
                 amount = Math.min(amount, slot.stackSize);
                 int recharge = 0;
@@ -169,18 +167,10 @@ public class PeripheralXP extends MountedPeripheral {// Beware, a lot of the mat
                 changed = true;
                 return new Object[] { collected };
             case 4:
-                boolean ac = !autoCollect;
-                if (arguments.length > 0) {
-                    if (!(arguments[0] instanceof Boolean))
-                        throw new LuaException("Bad argument #1 (expected boolean)");
-                    ac = (Boolean) arguments[0];
-                }
-                autoCollect = ac;
+                autoCollect = arguments.bool(0, !autoCollect);
                 return new Object[] { autoCollect };
             case 5:
-                if (arguments.length < 1) throw new LuaException("Too few arguments");
-                if (!(arguments[0] instanceof Double)) throw new LuaException("Bad argument #1 (expected number)");
-                int levels = (int) Math.floor((Double) arguments[0]);
+                int levels = arguments.integer(0);
                 if (levels < 1 || levels > MAX_LEVEL)
                     throw new LuaException("invalid level count " + levels + " (expected 1-" + MAX_LEVEL + ")");
                 slot = turtle.getInventory()

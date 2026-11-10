@@ -90,210 +90,144 @@ public class LuaObjectHUD implements ILuaObject {
         this.isGui = isGui;
     }
 
+    /** The HUD methods available to an overlay program. */
+    private static final String[] OVERLAY_METHODS = new String[] { "getResolution", "sendMessage", "drawString",
+        "drawTexture", "drawRectangle", "drawHorizontalLine", "drawVerticalLine", "getColorFromRGB", "sync", "clear",
+        "add", "getGUI" };
+
+    /** The HUD methods available to a GUI program; adds the interactive commands. */
+    private static final String[] GUI_METHODS = new String[] { "getResolution", "sendMessage", "drawString",
+        "drawTexture", "drawRectangle", "drawHorizontalLine", "drawVerticalLine", "getColorFromRGB", "sync", "clear",
+        "add", "open", "close", "drawBackground", "addButton", "addTextField" };
+
     @Override
     public String[] getMethodNames() {
-        return isGui
-            ? new String[] { "getResolution", "sendMessage", "drawString", "drawTexture", "drawRectangle",
-                "drawHorizontalLine", "drawVerticalLine", "getColorFromRGB", "sync", "clear", "add", "open", "close",
-                "drawBackground", "addButton", "addTextField" }
-            : new String[] { "getResolution", "sendMessage", "drawString", "drawTexture", "drawRectangle",
-                "drawHorizontalLine", "drawVerticalLine", "getColorFromRGB", "sync", "clear", "add", "getGUI" };
+        return isGui ? GUI_METHODS : OVERLAY_METHODS;
     }
 
     @Override
-    public Object[] callMethod(ILuaContext context, int method, Object[] arguments)
+    public Object[] callMethod(ILuaContext context, int method, Object[] rawArguments)
         throws LuaException, InterruptedException {
-        // try {
+        LuaArgs arguments = LuaArgs.of(rawArguments);
         switch (method) {
-            case 0:
+            case 0: // getResolution
                 return new Object[] { width, height };
-            case 1:
-                if (arguments.length < 1) throw new LuaException("Not enough arguments");
-                if (!(arguments[0] instanceof String)) throw new LuaException("Bad argument #1 (expected string)");
-                messagesFor(playerName).push((String) arguments[0]);
+            case 1: // sendMessage(text)
+                messagesFor(playerName).push(arguments.string(0));
                 break;
-            case 2:
-                if (arguments.length < 3) throw new LuaException("Not enough arguments");
-                if (!(arguments[0] instanceof String)) throw new LuaException("Bad argument #1 (expected string)");
-                if (!(arguments[1] instanceof Double)) throw new LuaException("Bad argument #2 (expected number)");
-                if (!(arguments[2] instanceof Double)) throw new LuaException("Bad argument #3 (expected number)");
-                if (arguments.length > 3 && !(arguments[3] instanceof Double))
-                    throw new LuaException("Bad argument #4 (expected number)");
-                if (arguments.length > 4 && !(arguments[4] instanceof Boolean))
-                    throw new LuaException("Bad argument #5 (expected boolean)");
-                int color = Color.WHITE.getRGB();
-                if (arguments.length > 3) color = (int) (double) (Double) arguments[3];
-                boolean shadow = true;
-                if (arguments.length > 4) shadow = (Boolean) arguments[4];
-                DrawStringCommand drawString = new DrawStringCommand();
-                drawString.message = (String) arguments[0];
-                drawString.x = (int) (double) (Double) arguments[1];
-                drawString.y = (int) (double) (Double) arguments[2];
-                drawString.color = color;
-                drawString.shadow = shadow;
-                renderStack.add(drawString);
-                break;
-            case 3:
-                if (arguments.length < 3) throw new LuaException("Not enough arguments");
-                if (!(arguments[0] instanceof String)) throw new LuaException("Bad argument #1 (expected string)");
-                if (!(arguments[1] instanceof Double)) throw new LuaException("Bad argument #2 (expected number)");
-                if (!(arguments[2] instanceof Double)) throw new LuaException("Bad argument #3 (expected number)");
-                if (arguments.length > 3 && !(arguments[3] instanceof Double))
-                    throw new LuaException("Bad argument #4 (expected number)");
-                if (arguments.length > 4 && !(arguments[4] instanceof Double))
-                    throw new LuaException("Bad argument #5 (expected number)");
-                if (arguments.length > 5 && !(arguments[5] instanceof Double))
-                    throw new LuaException("Bad argument #6 (expected number)");
-                if (arguments.length > 6 && !(arguments[6] instanceof Double))
-                    throw new LuaException("Bad argument #7 (expected number)");
-                int u = -1;
-                int v = -1;
-                int width = 256;
-                int height = 256;
-                if (arguments.length > 3) width = (int) (double) (Double) arguments[3];
-                if (arguments.length > 4) height = (int) (double) (Double) arguments[4];
-                if (arguments.length > 5) u = (int) (double) (Double) arguments[5];
-                if (arguments.length > 6) v = (int) (double) (Double) arguments[6];
-                DrawTextureCommand command = new DrawTextureCommand();
-                command.resource = (String) arguments[0];
-                command.x = (int) (double) (Double) arguments[1];
-                command.y = (int) (double) (Double) arguments[2];
-                command.u = u;
-                command.v = v;
-                command.width = width;
-                command.height = height;
+            case 2: { // drawString(text, x, y, [color], [shadow])
+                DrawStringCommand command = new DrawStringCommand();
+                command.message = arguments.string(0);
+                command.x = arguments.integer(1);
+                command.y = arguments.integer(2);
+                command.color = arguments.integer(3, Color.WHITE.getRGB());
+                command.shadow = arguments.bool(4, true);
                 renderStack.add(command);
                 break;
-            case 4:
-                if (arguments.length < 5) throw new LuaException("Not enough arguments");
-                if (!(arguments[0] instanceof Double)) throw new LuaException("Bad argument #1 (expected number)");
-                if (!(arguments[1] instanceof Double)) throw new LuaException("Bad argument #2 (expected number)");
-                if (!(arguments[2] instanceof Double)) throw new LuaException("Bad argument #3 (expected number)");
-                if (!(arguments[3] instanceof Double)) throw new LuaException("Bad argument #4 (expected number)");
-                if (!(arguments[4] instanceof Double)) throw new LuaException("Bad argument #5 (expected number)");
-                if (arguments.length > 5 && !(arguments[5] instanceof Double))
-                    throw new LuaException("Bad argument #6 (expected number)");
-                DrawRectangleCommand c = new DrawRectangleCommand();
-                c.x1 = (int) (double) (Double) arguments[0];
-                c.y1 = (int) (double) (Double) arguments[1];
-                c.x2 = (int) (double) (Double) arguments[2];
-                c.y2 = (int) (double) (Double) arguments[3];
-                c.color = new Color((int) (double) (Double) arguments[4], true);
-                if (arguments.length > 5) c.color2 = new Color((int) (double) (Double) arguments[5], true);
-                renderStack.add(c);
+            }
+            case 3: { // drawTexture(resource, x, y, [width], [height], [u], [v])
+                DrawTextureCommand command = new DrawTextureCommand();
+                command.resource = arguments.string(0);
+                command.x = arguments.integer(1);
+                command.y = arguments.integer(2);
+                command.width = arguments.integer(3, 256);
+                command.height = arguments.integer(4, 256);
+                command.u = arguments.integer(5, -1);
+                // This used to be read only above 36 arguments, so every tiled texture rendered the whole sheet.
+                command.v = arguments.integer(6, -1);
+                renderStack.add(command);
                 break;
-            case 5:
-                if (arguments.length < 4) throw new LuaException("Not enough arguments");
-                if (!(arguments[0] instanceof Double)) throw new LuaException("Bad argument #1 (expected number)");
-                if (!(arguments[1] instanceof Double)) throw new LuaException("Bad argument #2 (expected number)");
-                if (!(arguments[2] instanceof Double)) throw new LuaException("Bad argument #3 (expected number)");
-                if (!(arguments[3] instanceof Double)) throw new LuaException("Bad argument #4 (expected number)");
-                DrawRectangleCommand c_ = new DrawRectangleCommand();
-                c_.x1 = (int) (double) (Double) arguments[0];
-                c_.y1 = (int) (double) (Double) arguments[1];
-                c_.x2 = (int) (double) (Double) arguments[2] + 1;
-                c_.y2 = c_.y1 + 1;
-                c_.color = new Color((int) (double) (Double) arguments[3], true);
-                renderStack.add(c_);
+            }
+            case 4: { // drawRectangle(x1, y1, x2, y2, color, [color2])
+                DrawRectangleCommand command = new DrawRectangleCommand();
+                command.x1 = arguments.integer(0);
+                command.y1 = arguments.integer(1);
+                command.x2 = arguments.integer(2);
+                command.y2 = arguments.integer(3);
+                command.color = new Color(arguments.integer(4), true);
+                if (arguments.has(5)) command.color2 = new Color(arguments.integer(5), true);
+                renderStack.add(command);
                 break;
-            case 6:
-                if (arguments.length < 4) throw new LuaException("Not enough arguments");
-                if (!(arguments[0] instanceof Double)) throw new LuaException("Bad argument #1 (expected number)");
-                if (!(arguments[1] instanceof Double)) throw new LuaException("Bad argument #2 (expected number)");
-                if (!(arguments[2] instanceof Double)) throw new LuaException("Bad argument #3 (expected number)");
-                if (!(arguments[3] instanceof Double)) throw new LuaException("Bad argument #4 (expected number)");
-                DrawRectangleCommand c1 = new DrawRectangleCommand();
-                c1.x1 = (int) (double) (Double) arguments[0];
-                c1.y1 = (int) (double) (Double) arguments[1] + 1;
-                c1.x2 = c1.x1 + 1;
-                c1.y2 = (int) (double) (Double) arguments[2];
-                c1.color = new Color((int) (double) (Double) arguments[3], true);
-                renderStack.add(c1);
+            }
+            case 5: { // drawHorizontalLine(x, y, length, color)
+                DrawRectangleCommand command = new DrawRectangleCommand();
+                command.x1 = arguments.integer(0);
+                command.y1 = arguments.integer(1);
+                command.x2 = arguments.integer(2) + 1;
+                command.y2 = command.y1 + 1;
+                command.color = new Color(arguments.integer(3), true);
+                renderStack.add(command);
                 break;
-            case 7:
-                if (arguments.length < 3) throw new LuaException("Not enough arguments");
-                if (!(arguments[0] instanceof Double)) throw new LuaException("Bad argument #1 (expected number)");
-                if (!(arguments[1] instanceof Double)) throw new LuaException("Bad argument #2 (expected number)");
-                if (!(arguments[2] instanceof Double)) throw new LuaException("Bad argument #3 (expected number)");
-                if (arguments.length > 3 && !(arguments[3] instanceof Double))
-                    throw new LuaException("Bad argument #4 (expected number)");
-                if (arguments.length > 3) return new Object[] { new Color(
-                    (int) (double) (Double) arguments[0],
-                    (int) (double) (Double) arguments[1],
-                    (int) (double) (Double) arguments[2],
-                    (int) (double) (Double) arguments[3]).getRGB() };
-                return new Object[] { new Color(
-                    (int) (double) (Double) arguments[0],
-                    (int) (double) (Double) arguments[1],
-                    (int) (double) (Double) arguments[2]).getRGB() };
-            case 8:
+            }
+            case 6: { // drawVerticalLine(x, y, length, color)
+                DrawRectangleCommand command = new DrawRectangleCommand();
+                command.x1 = arguments.integer(0);
+                command.y1 = arguments.integer(1) + 1;
+                command.x2 = command.x1 + 1;
+                command.y2 = arguments.integer(2);
+                command.color = new Color(arguments.integer(3), true);
+                renderStack.add(command);
+                break;
+            }
+            case 7: // getColorFromRGB(r, g, b, [a])
+                if (arguments.has(3)) return new Object[] { new Color(
+                    arguments.integer(0),
+                    arguments.integer(1),
+                    arguments.integer(2),
+                    Math.max(0, Math.min(255, arguments.integer(3)))).getRGB() };
+                return new Object[] {
+                    new Color(arguments.integer(0), arguments.integer(1), arguments.integer(2)).getRGB() };
+            case 8: // sync()
                 sendToPlayer(new CommandPacket(stackToArray(), uuid, false, isGui));
                 clearAndReset();
                 break;
-            case 9:
+            case 9: // clear()
                 sendToPlayer(new CommandPacket(new HelmetCommand[0], uuid, false, isGui));
                 clearAndReset();
                 break;
-            case 10:
+            case 10: // add()
                 sendToPlayer(new CommandPacket(stackToArray(), uuid, true, isGui));
                 clearAndReset();
                 break;
-            case 11:
+            case 11: // open() for a GUI program, getGUI() for an overlay program
                 if (isGui) sendToPlayer(new GuiPacket(false));
                 else return new Object[] { new LuaObjectHUD(this.playerName, this.uuid, true) };
                 break;
-            case 12:
+            case 12: // close()
                 if (!isGui) throw new LuaException("close() is not available to HUD programs");
                 sendToPlayer(new GuiPacket(true));
                 break;
-            case 13:
-                if (arguments.length > 0 && !(arguments[0] instanceof Boolean))
-                    throw new LuaException("Bad argument #1 (expected boolean)");
-                if (arguments.length > 0) {
-                    DrawBackgroundCommand background = new DrawBackgroundCommand();
-                    background.defaultBackground = (Boolean) arguments[0];
-                    renderStack.add(background);
-                } else renderStack.add(new DrawBackgroundCommand());
+            case 13: { // drawBackground([defaultBackground])
+                DrawBackgroundCommand command = new DrawBackgroundCommand();
+                if (arguments.has(0)) command.defaultBackground = arguments.bool(0);
+                renderStack.add(command);
                 break;
-            case 14:
-                if (arguments.length < 6) throw new LuaException("Not enough arguments");
-                if (!(arguments[0] instanceof Double)) throw new LuaException("Bad argument #1 (expected number)");
-                if (!(arguments[1] instanceof Double)) throw new LuaException("Bad argument #2 (expected number)");
-                if (!(arguments[2] instanceof Double)) throw new LuaException("Bad argument #3 (expected number)");
-                if (!(arguments[3] instanceof Double)) throw new LuaException("Bad argument #4 (expected number)");
-                if (!(arguments[4] instanceof Double)) throw new LuaException("Bad argument #5 (expected number)");
-                if (!(arguments[5] instanceof String)) throw new LuaException("Bad argument #6 (expected string)");
-                AddButtonCommand addButtonCommand = new AddButtonCommand();
-                addButtonCommand.id = (int) (double) (Double) arguments[0];
-                addButtonCommand.x = (int) (double) (Double) arguments[1];
-                addButtonCommand.y = (int) (double) (Double) arguments[2];
-                addButtonCommand.width = (int) (double) (Double) arguments[3];
-                addButtonCommand.height = (int) (double) (Double) arguments[4];
-                addButtonCommand.message = (String) arguments[5];
-                renderStack.add(addButtonCommand);
+            }
+            case 14: { // addButton(id, x, y, width, height, text)
+                AddButtonCommand command = new AddButtonCommand();
+                command.id = arguments.integer(0);
+                command.x = arguments.integer(1);
+                command.y = arguments.integer(2);
+                command.width = arguments.integer(3);
+                command.height = arguments.integer(4);
+                command.message = arguments.string(5);
+                renderStack.add(command);
                 break;
-            case 15:
-                if (arguments.length < 5) throw new LuaException("Not enough arguments");
-                if (!(arguments[0] instanceof Double)) throw new LuaException("Bad argument #1 (expected number)");
-                if (!(arguments[1] instanceof Double)) throw new LuaException("Bad argument #2 (expected number)");
-                if (!(arguments[2] instanceof Double)) throw new LuaException("Bad argument #3 (expected number)");
-                if (!(arguments[3] instanceof Double)) throw new LuaException("Bad argument #4 (expected number)");
-                if (!(arguments[4] instanceof Double)) throw new LuaException("Bad argument #5 (expected number)");
-                if (arguments.length > 5 && !(arguments[5] instanceof String))
-                    throw new LuaException("Bad argument #6 (expected string)");
-                AddTextFieldCommand addTextFieldCommand = new AddTextFieldCommand();
-                addTextFieldCommand.id = (int) (double) (Double) arguments[0];
-                addTextFieldCommand.x = (int) (double) (Double) arguments[1];
-                addTextFieldCommand.y = (int) (double) (Double) arguments[2];
-                addTextFieldCommand.width = (int) (double) (Double) arguments[3];
-                addTextFieldCommand.height = (int) (double) (Double) arguments[4];
-                if (arguments.length > 5) addTextFieldCommand.message = (String) arguments[5];
-                renderStack.add(addTextFieldCommand);
+            }
+            case 15: { // addTextField(id, x, y, width, height, [defaultText])
+                AddTextFieldCommand command = new AddTextFieldCommand();
+                command.id = arguments.integer(0);
+                command.x = arguments.integer(1);
+                command.y = arguments.integer(2);
+                command.width = arguments.integer(3);
+                command.height = arguments.integer(4);
+                command.message = arguments.string(5, command.message);
+                renderStack.add(command);
                 break;
+            }
+            default:
+                return new Object[0];
         }
-        // }catch (Exception e) {
-        // e.printStackTrace();
-        // }
         return new Object[0];
     }
 

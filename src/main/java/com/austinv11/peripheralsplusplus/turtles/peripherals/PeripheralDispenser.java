@@ -8,6 +8,7 @@ import net.minecraft.tileentity.TileEntity;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 
+import com.austinv11.peripheralsplusplus.lua.LuaArgs;
 import com.austinv11.peripheralsplusplus.reference.Config;
 
 import dan200.computercraft.api.lua.ILuaContext;
@@ -38,14 +39,13 @@ public class PeripheralDispenser extends MountedPeripheral {
     }
 
     @Override
-    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] arguments)
+    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] rawArguments)
         throws LuaException, InterruptedException {
         if (!Config.enableFlingingTurtle) throw new LuaException("Flinging turtles have been disabled");
-        if (arguments.length > 0 && !(arguments[0] instanceof Double))
-            throw new LuaException("Bad argument #1 (expected number)");
+        LuaArgs arguments = LuaArgs.of(rawArguments);
         // Slot 1 in Lua is the first turtle slot; no argument means the selected slot. The old code started at 1
         // and *added* the argument, so dispense(0) used slot 1 and dispense(1) used slot 2 (CODE_REVIEW.md 4.10).
-        int slot = arguments.length > 0 ? (int) (double) (Double) arguments[0] - 1 : turtle.getSelectedSlot();
+        int slot = arguments.integer(0, turtle.getSelectedSlot() + 1) - 1;
         int direction;
         if (method == 1) direction = ForgeDirection.DOWN.flag; // Why these are reversed, idk. Dispensers be dum
         else if (method == 2) direction = ForgeDirection.UP.flag;

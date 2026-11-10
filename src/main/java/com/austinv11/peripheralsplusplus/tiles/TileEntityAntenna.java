@@ -17,6 +17,7 @@ import net.minecraft.server.MinecraftServer;
 import com.austinv11.collectiveframework.minecraft.utils.NBTHelper;
 import com.austinv11.peripheralsplusplus.PeripheralsPlusPlus;
 import com.austinv11.peripheralsplusplus.items.ItemSmartHelmet;
+import com.austinv11.peripheralsplusplus.lua.LuaArgs;
 import com.austinv11.peripheralsplusplus.lua.LuaObjectEntityControl;
 import com.austinv11.peripheralsplusplus.lua.LuaObjectHUD;
 import com.austinv11.peripheralsplusplus.network.ScaleRequestPacket;
@@ -89,8 +90,9 @@ public class TileEntityAntenna extends MountedTileEntity {
     }
 
     @Override
-    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] arguments)
+    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] rawArguments)
         throws LuaException, InterruptedException {
+        LuaArgs arguments = LuaArgs.of(rawArguments);
         // Smart-helmet methods are 0-3 and the nano-bot methods are 4-5; the two config flags gate different halves of
         // the API, and the old `else if` blocked the helmet methods when nano bots were disabled (section 4.14).
         boolean isHelmetMethod = method < 4;
@@ -115,14 +117,13 @@ public class TileEntityAntenna extends MountedTileEntity {
                 }
             case 1:
                 synchronized (this) {
-                    if (arguments.length < 1) throw new LuaException("Not enough arguments");
-                    if (!(arguments[0] instanceof String)) throw new LuaException("Bad argument #1 (expected string)");
-                    if (Util.getPlayer((String) arguments[0]) == null) return new Object[] { null };
-                    LuaObjectHUD obj = new LuaObjectHUD((String) arguments[0], identifier);
+                    String name = arguments.string(0);
+                    if (Util.getPlayer(name) == null) return new Object[] { null };
+                    LuaObjectHUD obj = new LuaObjectHUD(name, identifier);
                     huds.put(computer.getID(), obj);
                     PeripheralsPlusPlus.NETWORK.sendTo(
                         new ScaleRequestPacket(this, computer.getID(), world),
-                        (EntityPlayerMP) Util.getPlayer((String) arguments[0]));
+                        (EntityPlayerMP) Util.getPlayer(name));
                     // ComputerCraft 3.x: suspend until the client reports the HUD resolution instead of blocking
                     return new Object[] { MethodResult.pullEvent(event -> {
                         if (event.length > 0 && "resolution".equals(event[0])) return MethodResult.of(obj);
@@ -132,8 +133,7 @@ public class TileEntityAntenna extends MountedTileEntity {
                 }
             case 2:
                 synchronized (this) {
-                    if (arguments.length != 1) throw new LuaException("Incorrect Arguments!");
-                    this.setLabel(arguments[0].toString());
+                    this.setLabel(arguments.string(0));
                     return new Object[] { this.getLabel() };
                 }
             case 3:
@@ -152,12 +152,12 @@ public class TileEntityAntenna extends MountedTileEntity {
                     entities.put(i++, entity.getEntityId());
                 }
                 return new Object[] { entities };
-            case 5:
-                if (arguments.length < 1) throw new LuaException("Too few arguments");
-                if (!(arguments[0] instanceof Double)) throw new LuaException("Bad argument #1 (expected number)");
-                Entity ent = entityFromId((int) (double) (Double) arguments[0]);
+            case 5: {
+                int entityId = arguments.integer(0);
+                Entity ent = entityFromId(entityId);
                 if (ent != null) return new Object[] { new LuaObjectEntityControl(identifier, ent) };
-                else throw new LuaException("Entity with id " + arguments[0] + " not found");
+                throw new LuaException("Entity with id " + entityId + " not found");
+            }
         }
         // }catch (Exception e) {
         // e.printStackTrace();

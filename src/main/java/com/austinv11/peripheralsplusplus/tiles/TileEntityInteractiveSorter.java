@@ -27,6 +27,7 @@ import net.minecraftforge.common.util.ForgeDirection;
 
 import com.austinv11.collectiveframework.minecraft.utils.Location;
 import com.austinv11.collectiveframework.minecraft.utils.WorldUtils;
+import com.austinv11.peripheralsplusplus.lua.LuaArgs;
 import com.austinv11.peripheralsplusplus.reference.Config;
 import com.austinv11.peripheralsplusplus.utils.InventoryUtils;
 import com.austinv11.peripheralsplusplus.utils.Util;
@@ -64,25 +65,18 @@ public class TileEntityInteractiveSorter extends MountedTileEntityInventory {
     }
 
     @Override
-    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] arguments)
+    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] rawArguments)
         throws LuaException, InterruptedException {
         if (!Config.enableInteractiveSorter) throw new LuaException("Interactive Sorters have been disabled");
+        LuaArgs arguments = LuaArgs.of(rawArguments);
         if (method == 0) {
             return new Object[] { getItemInfo(getStackInSlot(0)) };
 
         } else if (method == 1) {
             if (getStackInSlot(0) == null) return new Object[] { false };
-            ForgeDirection dir;
-            if (arguments.length < 1) throw new LuaException("Too few arguments");
-            if (!(arguments[0] instanceof String) && !(arguments[0] instanceof Double))
-                throw new LuaException("Bad argument #1 (expected string or number)");
-            if (arguments.length > 1 && !(arguments[1] instanceof Double))
-                throw new LuaException("Bad argument #2 (expected number)");
-            if (arguments[0] instanceof String) dir = ForgeDirection.valueOf(((String) arguments[0]).toUpperCase());
-            else dir = ForgeDirection.getOrientation((int) (double) (Double) arguments[0]);
-            int amount = arguments.length > 1
-                ? MathHelper.clamp_int((int) (double) (Double) arguments[1], 0, getStackInSlot(0).stackSize)
-                : getStackInSlot(0).stackSize;
+            ForgeDirection dir = arguments.direction(0);
+            int amount = arguments.integer(1, getStackInSlot(0).stackSize);
+            amount = MathHelper.clamp_int(amount, 0, getStackInSlot(0).stackSize);
             IInventory inventory = getInventoryForSide(dir);
             if (inventory == null) {
                 ItemStack dropped = decrStackSize(0, amount);
@@ -98,23 +92,14 @@ public class TileEntityInteractiveSorter extends MountedTileEntityInventory {
             return new Object[] { moved > 0 };
 
         } else if (method == 2) {
-            ForgeDirection dir;
-            if (arguments.length < 1) throw new LuaException("Too few arguments");
-            if (!(arguments[0] instanceof String) && !(arguments[0] instanceof Double))
-                throw new LuaException("Bad argument #1 (expected string or number)");
-            if (arguments.length > 1 && !(arguments[1] instanceof Double))
-                throw new LuaException("Bad argument #2 (expected number)");
-            if (arguments.length > 2 && !(arguments[2] instanceof Double))
-                throw new LuaException("Bad argument #3 (expected number)");
-            if (arguments[0] instanceof String) dir = ForgeDirection.valueOf(((String) arguments[0]).toUpperCase());
-            else dir = ForgeDirection.getOrientation((int) (double) (Double) arguments[0]);
+            ForgeDirection dir = arguments.direction(0);
             if (!isInventoryOnSide(dir)) throw new LuaException("Block is not a valid inventory");
             IInventory inventory = getInventoryForSide(dir);
             int[] slots = InventoryUtils.slotsFor(inventory, dir.getOpposite());
             int slot = -1;
-            if (arguments.length > 2) {
+            if (arguments.has(2)) {
                 if (slots.length == 0) return new Object[] { false };
-                slot = getNearestSlot((int) (double) (Double) arguments[2], slots);
+                slot = getNearestSlot(arguments.integer(2), slots);
                 if (inventory.getStackInSlot(slot) == null) return new Object[] { false };
             } else {
                 for (int candidate : slots) {
@@ -130,21 +115,13 @@ public class TileEntityInteractiveSorter extends MountedTileEntityInventory {
             if (slot == -1) return new Object[] { false };
             ItemStack source = inventory.getStackInSlot(slot);
             if (source == null) return new Object[] { false };
-            int amount = arguments.length > 1
-                ? MathHelper.clamp_int((int) (double) (Double) arguments[1], 0, source.stackSize)
-                : source.stackSize;
+            int amount = MathHelper.clamp_int(arguments.integer(1, source.stackSize), 0, source.stackSize);
             int moved = InventoryUtils.move(inventory, slot, this, 0, amount);
             markDirty();
             return new Object[] { moved > 0 };
 
         } else if (method == 3) {
-            ForgeDirection dir;
-            if (arguments.length < 1) throw new LuaException("Too few arguments");
-            if (!(arguments[0] instanceof String) && !(arguments[0] instanceof Double))
-                throw new LuaException("Bad argument #1 (expected string or number)");
-            if (arguments[0] instanceof String) dir = ForgeDirection.valueOf(((String) arguments[0]).toUpperCase());
-            else dir = ForgeDirection.getOrientation((int) (double) (Double) arguments[0]);
-            return new Object[] { isInventoryOnSide(dir) };
+            return new Object[] { isInventoryOnSide(arguments.direction(0)) };
         }
         return new Object[0];
     }

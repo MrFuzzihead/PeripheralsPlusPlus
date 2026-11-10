@@ -19,6 +19,7 @@ import net.minecraftforge.fluids.IFluidContainerItem;
 import net.minecraftforge.fluids.IFluidHandler;
 
 import com.austinv11.peripheralsplusplus.PeripheralsPlusPlus;
+import com.austinv11.peripheralsplusplus.lua.LuaArgs;
 import com.austinv11.peripheralsplusplus.mixins.early.ItemBucketAccessor;
 import com.austinv11.peripheralsplusplus.reference.Config;
 
@@ -65,8 +66,9 @@ public class PeripheralTank extends MountedPeripheral {
     }
 
     @Override
-    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] arguments)
+    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] rawArguments)
         throws LuaException, InterruptedException {
+        LuaArgs arguments = LuaArgs.of(rawArguments);
         ForgeDirection dir;
         int posX, posY, posZ;
         try {
@@ -89,23 +91,15 @@ public class PeripheralTank extends MountedPeripheral {
                     break;
                 // "fill": Move fluid from internal tank to container in specified slot / currently selected slot
                 // Returns amount of fluid moved
-                case 1:
-                    int fillSlot; // The slot that contains the container
-                    // If a slot is specified, check that it is valid and set it. If none is specified, use the
-                    // currently selected slot
-                    if (arguments.length > 1) {
-                        if (arguments[0] instanceof Double) {
-                            fillSlot = (int) (double) (Double) arguments[0];
-                        } else {
-                            throw new LuaException("Bad argument #1 (expected number)");
-                        }
-                    } else {
-                        fillSlot = turtle.getSelectedSlot();
-                    }
+                case 1: {
+                    // A slot argument is 1-based, like every other Lua slot in this mod.
+                    int fillSlot = arguments.integer(0, turtle.getSelectedSlot() + 1) - 1;
 
                     // Get the item in that slot and check that it is a valid container
                     ItemStack fillStack = turtle.getInventory()
                         .getStackInSlot(fillSlot);
+                    // An empty slot used to NPE into the catch-all below, which returned an empty array instead of 0.
+                    if (fillStack == null) return new Object[] { 0 };
                     if (fillStack.getItem() instanceof ItemBucket) {
                         // Check that the container is empty
                         if (((ItemBucketAccessor) fillStack.getItem()).ppp$getFullBlock() != Blocks.air) {
@@ -174,31 +168,22 @@ public class PeripheralTank extends MountedPeripheral {
 
                             doUpdate = true;
                             return new Object[] { filled };
-                        } catch (Exception e) {
+                        } catch (RuntimeException e) {
                             PeripheralsPlusPlus.LOGGER.error("Unable to fill a fluid container: " + e.getMessage());
                         }
                     }
                     return new Object[] { 0 };
+                }
                 // "drain": Moves fluid from container in specified slot to internal tank
                 // Returns amount of fluid moved
-                case 2:
+                case 2: {
                     try {
-                        int drainSlot; // The slot that contains the container
-                        // If a slot is specified, check that it is valid and set it. If none is specified, use the
-                        // currently selected slot
-                        if (arguments.length > 1) {
-                            if (arguments[0] instanceof Double) {
-                                drainSlot = (int) (double) (Double) arguments[0];
-                            } else {
-                                throw new LuaException("Bad argument #1 (expected number)");
-                            }
-                        } else {
-                            drainSlot = turtle.getSelectedSlot();
-                        }
+                        int drainSlot = arguments.integer(0, turtle.getSelectedSlot() + 1) - 1;
 
                         // Get the item in that slot and check that it is a valid container
                         ItemStack drainStack = turtle.getInventory()
                             .getStackInSlot(drainSlot);
+                        if (drainStack == null) return new Object[] { 0 };
                         if (!(drainStack.getItem() instanceof ItemBucket)
                             && !(drainStack.getItem() instanceof IFluidContainerItem)) {
                             return new Object[] { 0 };
@@ -254,17 +239,16 @@ public class PeripheralTank extends MountedPeripheral {
 
                         doUpdate = true;
                         return new Object[] { accepted };
-                    } catch (Exception e) {
+                    } catch (RuntimeException e) {
                         PeripheralsPlusPlus.LOGGER.error("Unable to drain a fluid container: " + e.getMessage());
                     }
+                    return new Object[] { 0 };
+                }
                 case 3:
                 case 4:
                 case 5:
                     // "empty[dir]" Places a block of the fluid in the internal tank in the world.
                     // Returns the amount of fluid emptied (always either 0 or 1000 for now)
-                    if (arguments.length > 0 && !(arguments[0] instanceof Double))
-                        throw new LuaException("Bad argument #1 (expected number)");
-
                     // Get the correct direction relative to the turtle depending on the method executed
                     dir = method == 3 ? ForgeDirection.getOrientation(turtle.getDirection())
                         : method == 4 ? ForgeDirection.UP : ForgeDirection.DOWN;
@@ -330,9 +314,6 @@ public class PeripheralTank extends MountedPeripheral {
                 case 8:
                     // "suck[dir]" Takes a block of fluid from the world into the internal tank
                     // Returns the amount of fluid moved (always either 0 or 1000 for now)
-                    if (arguments.length > 0 && !(arguments[0] instanceof Double))
-                        throw new LuaException("Bad argument #1 (expected number)");
-
                     // Get the correct direction relative to the turtle depending on the method executed
                     dir = method == 6 ? ForgeDirection.getOrientation(turtle.getDirection())
                         : method == 7 ? ForgeDirection.UP : ForgeDirection.DOWN;
@@ -400,7 +381,10 @@ public class PeripheralTank extends MountedPeripheral {
                         }
                     return new Object[] { 0 };
             }
-        } catch (Exception e) {
+        } catch (LuaException e) {
+            // A LuaException is the program's error and must reach Lua.
+            throw e;
+        } catch (RuntimeException e) {
             PeripheralsPlusPlus.LOGGER.error("Tank operation failed: " + e.getMessage());
         }
         return new Object[0];

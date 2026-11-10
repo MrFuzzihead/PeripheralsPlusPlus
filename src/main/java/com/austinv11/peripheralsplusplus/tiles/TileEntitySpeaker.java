@@ -5,6 +5,7 @@ import java.util.HashMap;
 import net.minecraft.nbt.NBTTagCompound;
 
 import com.austinv11.peripheralsplusplus.PeripheralsPlusPlus;
+import com.austinv11.peripheralsplusplus.lua.LuaArgs;
 import com.austinv11.peripheralsplusplus.network.AudioPacket;
 import com.austinv11.peripheralsplusplus.network.SynthPacket;
 import com.austinv11.peripheralsplusplus.reference.Config;
@@ -85,79 +86,59 @@ public class TileEntitySpeaker extends MountedTileEntity {
     }
 
     @Override
-    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] arguments)
+    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] rawArguments)
         throws LuaException, InterruptedException {
         if (!Config.enableSpeaker) throw new LuaException("Speakers have been disabled");
+        LuaArgs arguments = LuaArgs.of(rawArguments);
         if (method == 0) {
-            if (!(arguments.length > 0) || !(arguments[0] instanceof String))
-                throw new LuaException("Bad argument #1 (expected string)");
-            if (arguments.length > 1 && !(arguments[1] instanceof Double))
-                throw new LuaException("Bad argument #2 (expected number)");
-            if (arguments.length > 2 && !(arguments[2] instanceof String))
-                throw new LuaException("Bad argument #3 (expected string)");
-            if (arguments.length > 3 && !(arguments[3] instanceof Boolean))
-                throw new LuaException("Bad argument #4 (expected boolean");
+            String text = arguments.string(0);
+            double requested = arguments.number(1, Config.speechRange);
+            String requestedLanguage = arguments.string(2, null);
+            boolean waitForCompletion = arguments.bool(3, false);
 
-            String lang = null;
-            if (arguments.length > 2) if (TranslateUtils.isPrefix((String) arguments[2])) lang = (String) arguments[2];
-            else {
-                lang = TranslateUtils.getLangFromWord((String) arguments[2]);
+            String lang;
+            if (requestedLanguage == null) {
+                // Default to English: auto-detection needs a network round trip.
+                lang = Language.ENGLISH;
+            } else if (TranslateUtils.isPrefix(requestedLanguage)) {
+                lang = requestedLanguage;
+            } else {
+                lang = TranslateUtils.getLangFromWord(requestedLanguage);
                 if (lang == null || lang.length() < 2)
-                    throw new LuaException("Language " + (String) arguments[2] + " is unknown");
+                    throw new LuaException("Language " + requestedLanguage + " is unknown");
             }
-            else lang = Language.ENGLISH;// TranslateUtils.detectLangPrefix((String) arguments[0]);
             // Clamp a per-call range to the configured one, like the chat box does; the old code let a script
             // broadcast to the whole dimension (CODE_REVIEW.md section 5.20).
-            double range = clampRange(arguments.length > 1 ? (Double) arguments[1] : Config.speechRange);
-            pendingAudio.add(new Object[] { lang, arguments[0], range });
-            lastMessage = (String) arguments[0];
-            if (computer != null) pendingSpeech.put(computer.getID(), (String) arguments[0]);
-            if (arguments.length > 3 && (Boolean) arguments[3]) {
+            double range = clampRange(requested);
+            pendingAudio.add(new Object[] { lang, text, range });
+            lastMessage = text;
+            if (computer != null) pendingSpeech.put(computer.getID(), text);
+            if (waitForCompletion) {
                 // ComputerCraft 3.x: suspend until the speech finishes instead of blocking the computer thread
-                final String spoken = lastMessage;
-                final String language = lang;
                 return new Object[] { MethodResult.pullEvent(event -> {
-                    if (event.length > 0 && "speechComplete".equals(event[0])) return MethodResult.of(spoken, language);
+                    if (event.length > 0 && "speechComplete".equals(event[0])) return MethodResult.of(text, lang);
                     // Not ours, keep waiting
                     return null;
                 }) };
             }
             return new Object[] { lastMessage, lang };
         } else if (method == 1) {
-            if (!(arguments.length > 0) || !(arguments[0] instanceof String))
-                throw new LuaException("Bad argument #1 (expected string)");
-            if (arguments.length > 1 && !(arguments[1] instanceof Double))
-                throw new LuaException("Bad argument #2 (expected number)");
-            if (arguments.length > 2 && !(arguments[2] instanceof String))
-                throw new LuaException("Bad argument #3 (expected string)");
-            if (arguments.length > 3 && !(arguments[3] instanceof Double))
-                throw new LuaException("Bad argument #4 (expected number)");
-            if (arguments.length > 4 && !(arguments[4] instanceof Double))
-                throw new LuaException("Bad argument #5 (expected number)");
-            if (arguments.length > 5 && !(arguments[5] instanceof Double))
-                throw new LuaException("Bad argument #6 (expected number)");
-            if (arguments.length > 6 && !(arguments[6] instanceof Double))
-                throw new LuaException("Bad argument #7 (expected number)");
-            if (arguments.length > 7 && !(arguments[7] instanceof Double))
-                throw new LuaException("Bad argument #8 (expected number)");
-            if (arguments.length > 8 && !(arguments[8] instanceof Boolean))
-                throw new LuaException("Bad argument #9 (expected boolean");
-
-            String text = (String) arguments[0];
-            double range = clampRange(arguments.length > 1 ? (Double) arguments[1] : Config.speechRange);
-            String voice = arguments.length > 2 ? (String) arguments[2] : "kevin16";
-            Float pitch = arguments.length > 3 ? ((Double) arguments[3]).floatValue() : null;
-            Float pitchRange = arguments.length > 4 ? ((Double) arguments[4]).floatValue() : null;
-            Float pitchShift = arguments.length > 5 ? ((Double) arguments[5]).floatValue() : null;
-            Float rate = arguments.length > 6 ? ((Double) arguments[6]).floatValue() : null;
-            Float volume = arguments.length > 7 ? ((Double) arguments[7]).floatValue() : null;
+            String text = arguments.string(0);
+            double range = clampRange(arguments.number(1, Config.speechRange));
+            String voice = arguments.string(2, "kevin16");
+            Float pitch = optionalFloat(arguments, 3);
+            Float pitchRange = optionalFloat(arguments, 4);
+            Float pitchShift = optionalFloat(arguments, 5);
+            Float rate = optionalFloat(arguments, 6);
+            Float volume = optionalFloat(arguments, 7);
+            boolean waitForCompletion = arguments.bool(8, false);
 
             if (computer != null) pendingSpeech.put(computer.getID(), text);
             PeripheralsPlusPlus.NETWORK.sendToAllAround(
                 new SynthPacket(text, voice, pitch, pitchRange, pitchShift, rate, volume, xCoord, yCoord, zCoord, side),
                 new NetworkRegistry.TargetPoint(id, xCoord, yCoord, zCoord, range));
 
-            if (arguments.length > 8 && (Boolean) arguments[8]) {
+            if (waitForCompletion) {
                 // ComputerCraft 3.x: suspend until the synthesis finishes instead of blocking the computer thread
                 return new Object[] { MethodResult.pullEvent(event -> {
                     if (event.length > 0 && "synthComplete".equals(event[0])) return MethodResult.of(text);
@@ -168,6 +149,15 @@ public class TileEntitySpeaker extends MountedTileEntity {
             return new Object[] { text };
         }
         return new Object[0];
+    }
+
+    /**
+     * @param arguments the Lua arguments
+     * @param index     the argument index
+     * @return the value as a float, or {@code null} when the argument is absent
+     */
+    private static Float optionalFloat(LuaArgs arguments, int index) throws LuaException {
+        return arguments.has(index) ? Float.valueOf((float) arguments.number(index)) : null;
     }
 
     /**

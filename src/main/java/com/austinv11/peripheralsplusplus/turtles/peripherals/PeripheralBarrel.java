@@ -7,6 +7,7 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
 import net.minecraftforge.oredict.OreDictionary;
 
+import com.austinv11.peripheralsplusplus.lua.LuaArgs;
 import com.austinv11.peripheralsplusplus.reference.Config;
 
 import dan200.computercraft.api.lua.ILuaContext;
@@ -66,15 +67,12 @@ public class PeripheralBarrel extends MountedPeripheral {
     }
 
     @Override
-    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] arguments)
+    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] rawArguments)
         throws LuaException, InterruptedException {
         if (!Config.enableBarrelTurtle) throw new LuaException("Barrel Turtles have been disabled");
+        LuaArgs arguments = LuaArgs.of(rawArguments);
         if (method == 0) {
-            int amount = STACK_SIZE;
-            if (arguments.length > 0) {
-                if (!(arguments[0] instanceof Double)) throw new LuaException("Bad argument #1 (expected number)");
-                amount = (int) (double) (Double) arguments[0];
-            }
+            int amount = arguments.integer(0, STACK_SIZE);
             if (CURRENT_USAGE < amount) amount = CURRENT_USAGE;
             if (ITEM_TYPE_STORED == null) return new Object[] { 0 };
             ItemStack slot = turtle.getInventory()
@@ -96,11 +94,7 @@ public class PeripheralBarrel extends MountedPeripheral {
             changed = true;
             return new Object[] { amount };
         } else if (method == 1) {
-            int amount = 64;
-            if (arguments.length > 0) {
-                if (!(arguments[0] instanceof Double)) throw new LuaException("Bad argument #1 (expected number)");
-                amount = (int) (double) (Double) arguments[0];
-            }
+            int amount = arguments.integer(0, 64);
             if (turtle.getInventory()
                 .getStackInSlot(turtle.getSelectedSlot()) == null) return new Object[] { 0 };
             ItemStack items = turtle.getInventory()

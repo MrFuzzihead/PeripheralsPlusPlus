@@ -17,8 +17,9 @@ import net.minecraft.util.Facing;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.Constants;
 
+import com.austinv11.peripheralsplusplus.lua.LuaArgs;
 import com.austinv11.peripheralsplusplus.reference.Config;
-import com.austinv11.peripheralsplusplus.utils.TurtleUtils;
+import com.austinv11.peripheralsplusplus.utils.TurtleUtil;
 
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Loader;
@@ -97,13 +98,13 @@ public class TileEntityTeleporter extends MountedTileEntity {
     }
 
     @Override
-    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] arguments)
+    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] rawArguments)
         throws LuaException, InterruptedException {
         if (!Config.enableTurtleTeleporter) throw new LuaException("Turtle teleporters have been disabled");
+        LuaArgs arguments = LuaArgs.of(rawArguments);
         if (method == 0 || method == 1) {
-            if (arguments.length > 0 && !(arguments[0] instanceof Double))
-                throw new LuaException("Bad argument #1 (expected number)");
-            int index = arguments.length > 0 ? (int) Math.floor((Double) arguments[0]) - 1 : 0;
+            // Lua link numbers start at 1.
+            int index = arguments.integer(0, 1) - 1;
             if (index < 0 || index >= getMaxLinks())
                 throw new LuaException("Bad link " + (index + 1) + " (expected 1-" + getMaxLinks() + ")");
             if (index >= links.size()) throw new LuaException("No such link");
@@ -113,7 +114,7 @@ public class TileEntityTeleporter extends MountedTileEntity {
                 xCoord + Facing.offsetsXForSide[getBlockMetadata()],
                 yCoord + Facing.offsetsYForSide[getBlockMetadata()],
                 zCoord + Facing.offsetsZForSide[getBlockMetadata()]);
-            if (TurtleUtils.getTurtle(te) == null) throw new LuaException("No turtle in front");
+            if (TurtleUtil.getTurtle(te) == null) throw new LuaException("No turtle in front");
             World destWorld = MinecraftServer.getServer()
                 .worldServerForDimension(link.linkDim);
             if (destWorld == null) throw new LuaException("Destination world missing");
@@ -133,7 +134,7 @@ public class TileEntityTeleporter extends MountedTileEntity {
             int xdif = Math.abs(xCoord - link.link.posX);
             int ydif = Math.abs(yCoord - link.link.posY);
             int zdif = Math.abs(zCoord - link.link.posZ);
-            ITurtleAccess turtle = TurtleUtils.getTurtle(te);
+            ITurtleAccess turtle = TurtleUtil.getTurtle(te);
             if (turtle == null) throw new LuaException("No turtle in front");
             if (!turtle.consumeFuel(
                 Math.abs(
@@ -172,9 +173,7 @@ public class TileEntityTeleporter extends MountedTileEntity {
             }
             return new Object[] { map1 };
         } else if (method == 3) {
-            if (!(arguments.length >= 1) || !(arguments[0] instanceof String))
-                throw new LuaException("Bad argument #1 (expected string)");
-            this.tag = (String) arguments[0];
+            this.tag = arguments.string(0);
             return new Object[] { tag };
         }
         return new Object[0];

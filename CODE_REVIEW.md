@@ -746,7 +746,7 @@ registration, villager trades, entity spawning. These are covered by the gameTes
 
 ### 10.3 Test-class matrix
 
-Landed (167 tests, `./gradlew test`):
+Landed (204 tests, `./gradlew test`):
 
 | Test class | Source under test | Tests | Guards |
 |---|---|---:|---|
@@ -764,6 +764,10 @@ Landed (167 tests, `./gradlew test`):
 | `turtles/BarrelTest` | `turtles/peripherals/PeripheralBarrel` | 9 | empty-barrel NPE, meta matching, no per-tick NBT (§5.44) |
 | `tiles/ChatBoxTest` | `tiles/TileEntityChatBox` | 19 | argument validation, range clamp, rate limiter, formatting (§5.8–5.10) |
 | `util/RateLimiterTest` | `utils/RateLimiter` | 8 | window semantics, unlimited modes (§5.10) |
+| `tiles/InteractiveSorterTest` | `tiles/TileEntityInteractiveSorter` | 8 | side resolution, 1-based slot, disabled state |
+| `lua/LuaObjectHUDTest` | `lua/LuaObjectHUD` | 17 | all 16 HUD methods' argument contracts, `v`/`close` fixes (§4.6) |
+| `tiles/ConfigSurfaceTest` | `reference/Config` | 6 | reflective field shape, no `%` in comments (§6.10) |
+| `event/handler/RobotHandlerTest` | `event/handler/RobotHandler` | 6 | operation lifecycle, unknown key names (§5.28) |
 | `network/PacketCodecTest` | `network/*` | 6 | `toBytes`/`fromBytes` round-trip, incl. `SynthPacket.rate` (§4.5) |
 | `reference/ReferenceTest` | `reference/Reference` | 6 | turtle/pocket id uniqueness and ranges, proxy classes |
 
@@ -804,8 +808,9 @@ Ratchet plan — raise the floor in the same PR that adds each row above:
 | batch 1 (harness landing) | 4 % | 4 % |
 | batch 2 | 7 % | 7 % |
 | batch 3 | 11 % | 10 % |
-| batch 4 (now) | 13 % | 11 % |
-| after the remaining Lua-object tests | 18 % | 14 % |
+| batch 4 | 13 % | 11 % |
+| batch 6 (now) | 16 % | 14 % |
+| the remaining 65 % | needs the client GUI, Forestry/AE peripherals and turtle-upgrade harnesses | |
 | after Phase 1–2 refactors (§9) | 35 % | 25 % |
 | steady state | 65 % | 50 % |
 
@@ -1154,3 +1159,50 @@ is the pattern the review recommended.
 **Still open** (§6 only): the `Config` `@Description` wording pass (§6.10), the `LuaArgs` rollout to the ~15
 remaining peripherals (§6.28 / §9 phase 2), and the `README`-adjacent naming tidy-ups (§6.27). The API-doc comment on
 `computers`/`huds` and the `mountedPaths` maps are current.
+
+## 18. Appendix H — batch 6 (the `LuaArgs` rollout and the last P3 items)
+
+This closes the backlog: every P0–P3 item in this document is fixed except where noted below.
+
+**`LuaArgs` adopted across the Lua surface (§6.28 / §9 phase 2).** The hand-rolled
+`if (!(arguments[0] instanceof Double)) throw new LuaException("Bad argument #1 (expected number)")` pattern is gone
+from ten more call sites, and `LuaArgs` gained a `direction(int)` reader (a side name or a `ForgeDirection` ordinal)
+that six peripherals had each implemented slightly differently. Converted in this batch:
+
+| File | Note |
+|---|---|
+| `lua/LuaObjectHUD` | all 16 methods; the whole `callMethod` was rewritten as one switch with a `LuaArgs` reader (was ~200 lines of checks) |
+| `tiles/TileEntityInteractiveSorter` | side + amount + slot |
+| `tiles/TileEntityTeleporter` | 1-based link index, label |
+| `tiles/TileEntitySpeaker` | `speak`/`synthesize`, 9 optional arguments each |
+| `tiles/TileEntityAntenna` | `getHUD`, `setLabel`, `getInfectedEntity` |
+| `tiles/TileEntityPlayerSensor` | range and `inWorld` |
+| `tiles/TileEntityOreDictionary` | two slot pairs, now `int` instead of `double` |
+| `turtles/peripherals/PeripheralResupply` | side-or-coordinates, slot, item id, meta |
+| `turtles/peripherals/PeripheralTank` | slot arguments; also stopped swallowing `LuaException` into an empty array |
+| `turtles/peripherals/PeripheralBarrel`, `PeripheralXP`, `PeripheralDispenser` | simple optional numbers |
+
+Two real bugs fell out of the conversion: `PeripheralTank.fill`/`drain` NPE'd on an empty slot into a catch-all that
+returned nothing, and `PeripheralTank`'s outer `catch (Exception)` converted Lua argument errors into silent `nil`.
+
+**`LuaArgs` hardening.** `describe()` now reports any `Number` as `number` rather than only `Double`, so a Java-side
+caller gets an accurate error message.
+
+**Last P3 items.**
+
+| Item | Change |
+|---|---|
+| §6.10 | 19 config descriptions reworded; a new `ConfigSurfaceTest` asserts reflectively that every field is `public static`, non-final, of a supported type, described, and free of a `%` (which used to break CollectiveFramework's config logger) |
+| §6.27 | `TurtleUtils` merged into `TurtleUtil` (it held one method); `TileEntityrfCharger`'s `name` field was already gone |
+
+**Coverage ratchet.** 167 → **204** unit tests in 19 classes (new: `InteractiveSorterTest`, `LuaObjectHUDTest`,
+`ConfigSurfaceTest`, `RobotHandlerTest`), line coverage 13.2 % → **16.3 %**, branch 11.8 % → **14.9 %**, floor raised
+to 16 % / 14 %. The in-game suite is unchanged at 158 assertions and still passes.
+
+**Deliberately not done**, with reasons:
+
+| Item | Why |
+|---|---|
+| `LuaObjectEntityControl` argument handling | its `numberOrString` logic is already correct after batch 2; converting it risks the click/key/mouse packing without buying a fix. The only remaining rough edge is the `MathUtils.isEvenNumber(method)` press/release mapping, which is documented |
+| `TileEntityMEBridge` argument parsing | three `instanceof Double` checks on an AE-specific path that the game test does not cover and that has no known defect |
+| the remaining 49 % of coverage | it is the client GUI/rendering (`client/**`, excluded from the report), the Forestry analyzers and the AE bridge (need those mods at test time), and the turtle upgrades (need a real turtle harness). Each needs more scaffolding than the defect density justifies; `gameTestServer` is the right tool and already covers the representative ones |

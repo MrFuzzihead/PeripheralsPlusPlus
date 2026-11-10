@@ -2,6 +2,8 @@ package com.austinv11.peripheralsplusplus.lua;
 
 import java.util.HashMap;
 
+import net.minecraftforge.common.util.ForgeDirection;
+
 import dan200.computercraft.api.lua.LuaException;
 
 /**
@@ -62,8 +64,8 @@ public final class LuaArgs {
         if (value == null) return "nil";
         if (value instanceof String) return "string";
         if (value instanceof Boolean) return "boolean";
-        if (value instanceof Double) return "number";
-        if (value instanceof Object[]) return "table";
+        // Lua only ever produces Double, but a Java caller (or a future CC version) may hand us another Number.
+        if (value instanceof Number) return "number";
         return "table";
     }
 
@@ -202,6 +204,45 @@ public final class LuaArgs {
         if (!(value instanceof Double) && !(value instanceof String))
             throw badArgument(index, "string or number", describe(value));
         return value;
+    }
+
+    /**
+     * Reads a side argument, as a name ({@code "north"}) or a {@code ForgeDirection} ordinal.
+     *
+     * <p>
+     * Six peripherals each had their own copy of this, and each one reported the same three failure modes differently.
+     * </p>
+     *
+     * @param index zero-based index
+     * @return the direction
+     * @throws LuaException when the argument is missing, of the wrong type, or not a side name
+     */
+    public ForgeDirection direction(int index) throws LuaException {
+        Object value = numberOrString(index);
+        if (value instanceof Double) {
+            int ordinal = (int) (double) (Double) value;
+            ForgeDirection direction = ForgeDirection.getOrientation(ordinal);
+            if (direction == ForgeDirection.UNKNOWN && ordinal != ForgeDirection.UNKNOWN.ordinal())
+                throw new LuaException("Bad argument #" + (index + 1) + " (unknown side " + ordinal + ")");
+            return direction;
+        }
+        try {
+            return ForgeDirection.valueOf(((String) value).toUpperCase(java.util.Locale.ROOT));
+        } catch (IllegalArgumentException e) {
+            throw new LuaException("Bad argument #" + (index + 1) + " (unknown side '" + value + "')");
+        }
+    }
+
+    /**
+     * Reads a side argument, defaulting to a given direction when it is absent.
+     *
+     * @param index        zero-based index
+     * @param defaultValue returned when the argument is absent
+     * @return the direction
+     * @throws LuaException when the argument is present but is not a side
+     */
+    public ForgeDirection direction(int index, ForgeDirection defaultValue) throws LuaException {
+        return has(index) ? direction(index) : defaultValue;
     }
 
     /**

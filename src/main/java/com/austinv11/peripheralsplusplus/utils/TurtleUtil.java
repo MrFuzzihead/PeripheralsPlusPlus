@@ -8,6 +8,7 @@ import net.minecraft.entity.Entity;
 import net.minecraft.entity.item.EntityItem;
 import net.minecraft.inventory.IInventory;
 import net.minecraft.item.ItemStack;
+import net.minecraft.tileentity.TileEntity;
 import net.minecraft.util.AxisAlignedBB;
 import net.minecraft.util.ChunkCoordinates;
 import net.minecraft.util.Facing;
@@ -19,8 +20,26 @@ import com.austinv11.collectiveframework.minecraft.utils.NBTHelper;
 import cpw.mods.fml.common.registry.GameRegistry;
 import dan200.computercraft.api.turtle.ITurtleAccess;
 import dan200.computercraft.api.turtle.ITurtleUpgrade;
+import dan200.computercraft.shared.turtle.blocks.ITurtleTile;
 
 public class TurtleUtil {
+
+    /**
+     * Gets the turtle at a tile entity, if there is one.
+     *
+     * <p>
+     * This used to live in a second utility class, {@code TurtleUtils}, whose only method was this one. It also used
+     * to guess the tile entity class name and call {@code getAccess} reflectively; the API interface is public.
+     * </p>
+     *
+     * @param te the tile entity to inspect
+     * @return the turtle access, or {@code null} when the tile entity is not a turtle
+     */
+    public static ITurtleAccess getTurtle(TileEntity te) {
+        if (te instanceof ITurtleAccess) return (ITurtleAccess) te;
+        if (te instanceof ITurtleTile) return ((ITurtleTile) te).getAccess();
+        return null;
+    }
 
     public static List<ItemStack> harvestBlock(ITurtleAccess turtle, FakeTurtlePlayer player, int dir,
         ItemStack itemToUse) {

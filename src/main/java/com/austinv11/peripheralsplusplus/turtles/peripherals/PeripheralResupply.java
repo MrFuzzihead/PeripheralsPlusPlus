@@ -3,11 +3,13 @@ package com.austinv11.peripheralsplusplus.turtles.peripherals;
 import net.minecraft.block.Block;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemBlock;
+import net.minecraft.item.ItemStack;
 import net.minecraft.util.ChunkCoordinates;
 import net.minecraft.world.World;
 import net.minecraftforge.common.util.ForgeDirection;
 
 import com.austinv11.peripheralsplusplus.blocks.BlockResupplyStation;
+import com.austinv11.peripheralsplusplus.lua.LuaArgs;
 import com.austinv11.peripheralsplusplus.reference.Config;
 import com.austinv11.peripheralsplusplus.tiles.TileEntityResupplyStation;
 
@@ -41,30 +43,24 @@ public class PeripheralResupply extends MountedPeripheral {
     }
 
     @Override
-    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] arguments)
+    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] rawArguments)
         throws LuaException, InterruptedException {
         if (!Config.enableResupplyStation) throw new LuaException("The resupply station has been disabled");
+        LuaArgs arguments = LuaArgs.of(rawArguments);
         switch (method) {
             case 0:
                 // link() takes one argument (a side) or three (x, y, z). Two was rejected as "too few" before.
-                if (arguments.length != 1 && arguments.length != 3)
+                if (arguments.size() != 1 && arguments.size() != 3)
                     throw new LuaException("link() expects a side, or x, y and z");
-                if (!(arguments[0] instanceof String) && !(arguments[0] instanceof Double))
-                    throw new LuaException("Bad argument #1 (expected string or number)");
-                if (arguments.length == 3) {
-                    if (!(arguments[0] instanceof Double)) throw new LuaException("Bad argument #1 (expected number)");
-                    if (!(arguments[1] instanceof Double)) throw new LuaException("Bad argument #2 (expected number)");
-                    if (!(arguments[2] instanceof Double)) throw new LuaException("Bad argument #3 (expected number)");
+                if (arguments.size() == 3) {
                     linkedStation = new ChunkCoordinates(
-                        ((Double) arguments[0]).intValue(),
-                        ((Double) arguments[1]).intValue(),
-                        ((Double) arguments[2]).intValue());
+                        arguments.integer(0),
+                        arguments.integer(1),
+                        arguments.integer(2));
                     linkedDimension = turtle.getWorld().provider.dimensionId;
                     return new Object[] { true };
                 }
-                ForgeDirection dir;
-                if (arguments[0] instanceof String) dir = ForgeDirection.valueOf(((String) arguments[0]).toUpperCase());
-                else dir = ForgeDirection.getOrientation((int) (double) (Double) arguments[0]);
+                ForgeDirection dir = arguments.direction(0);
                 ChunkCoordinates newLink = new ChunkCoordinates(
                     turtle.getPosition().posX + dir.offsetX,
                     turtle.getPosition().posY + dir.offsetY,
@@ -91,16 +87,9 @@ public class PeripheralResupply extends MountedPeripheral {
                         linkedStation.posY,
                         linkedStation.posZ) instanceof BlockResupplyStation))
                     throw new LuaException("The linked station is nonexistant!");
-                if (arguments.length > 0 && !(arguments[0] instanceof Double))
-                    throw new LuaException("Bad argument #1 (expected number)");
-                if (arguments.length > 1 && !(arguments[1] instanceof String) && !(arguments[1] instanceof Double))
-                    throw new LuaException("Bad argument #2 (expected string or number)");
-                if (arguments.length > 2 && !(arguments[2] instanceof Double))
-                    throw new LuaException("Bad argument #3 (expected number)");
-                int slot = turtle.getSelectedSlot();
-                if (arguments.length > 0) slot = ((Double) arguments[0]).intValue() - 1;
+                int slot = arguments.integer(0, turtle.getSelectedSlot() + 1) - 1;
                 String id = null;
-                if (arguments.length > 1 && arguments[1] instanceof String) id = (String) arguments[1];
+                if (arguments.has(1) && arguments.numberOrString(1) instanceof String) id = arguments.string(1);
                 else {
                     if (turtle.getInventory()
                         .getStackInSlot(slot) == null) return new Object[] { false };
@@ -119,12 +108,9 @@ public class PeripheralResupply extends MountedPeripheral {
                         id = Item.itemRegistry.getNameForObject(item);
                     }
                 }
-                int meta = arguments.length > 2 ? ((Double) arguments[2]).intValue()
-                    : turtle.getInventory()
-                        .getStackInSlot(slot) == null ? 0
-                            : turtle.getInventory()
-                                .getStackInSlot(slot)
-                                .getItemDamage();
+                ItemStack selected = turtle.getInventory()
+                    .getStackInSlot(slot);
+                int meta = arguments.integer(2, selected == null ? 0 : selected.getItemDamage());
                 synchronized (this) {
                     TileEntityResupplyStation station = (TileEntityResupplyStation) world
                         .getTileEntity(linkedStation.posX, linkedStation.posY, linkedStation.posZ);

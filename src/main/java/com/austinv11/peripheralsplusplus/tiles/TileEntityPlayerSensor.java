@@ -10,6 +10,7 @@ import net.minecraft.entity.player.EntityPlayer;
 import net.minecraft.nbt.NBTTagCompound;
 
 import com.austinv11.collectiveframework.minecraft.utils.Location;
+import com.austinv11.peripheralsplusplus.lua.LuaArgs;
 import com.austinv11.peripheralsplusplus.reference.Config;
 import com.austinv11.peripheralsplusplus.utils.Util;
 
@@ -77,17 +78,16 @@ public class TileEntityPlayerSensor extends MountedTileEntity {
     }
 
     @Override
-    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] arguments)
+    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] rawArguments)
         throws LuaException, InterruptedException {
         if (!Config.enablePlayerSensor) throw new LuaException("Player sensors have been disabled");
         if (!Config.additionalMethods)
             throw new LuaException("Additional methods for player sensors have been disabled");
+        LuaArgs arguments = LuaArgs.of(rawArguments);
         if (method == 0) {
-            if (arguments.length > 0 && !(arguments[0] instanceof Double))
-                throw new LuaException("Bad argument #1 (expected number)");
             // The range argument used to be parsed and then ignored, and the distance was |dx + dz| with no Y term
             // (CODE_REVIEW.md section 4.13).
-            double range = arguments.length > 0 ? (Double) arguments[0] : Config.sensorRange;
+            double range = arguments.number(0, Config.sensorRange);
             if (range < 0) range = Double.MAX_VALUE;
             Location from = location;
             if (from == null || from.getWorld() == null) throw new LuaException("Sensor is not in a world");
@@ -118,10 +118,7 @@ public class TileEntityPlayerSensor extends MountedTileEntity {
             }
             return new Object[] { returnVal };
         } else if (method == 1) {
-            if (arguments.length > 0 && !(arguments[0] instanceof Boolean))
-                throw new LuaException("Bad argument #1 (expected boolean)");
-            boolean inWorld = false;
-            if (arguments.length > 0) inWorld = (Boolean) arguments[0];
+            boolean inWorld = arguments.bool(0, false);
             synchronized (this) {
                 HashMap<Integer, String> map = new HashMap<Integer, String>();
                 int i = 1;
