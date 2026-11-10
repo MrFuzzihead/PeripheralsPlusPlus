@@ -21,7 +21,6 @@ import dan200.computercraft.api.turtle.ITurtleAccess;
 public class TileEntityOreDictionary extends MountedTileEntity {
 
     public static String publicName = "oreDictionary";
-    private String name = "tileEntityOreDictionary";
     private HashMap<IComputerAccess, Boolean> computers = new HashMap<IComputerAccess, Boolean>();
     private ITurtleAccess turtle = null;
 
@@ -32,10 +31,6 @@ public class TileEntityOreDictionary extends MountedTileEntity {
     public TileEntityOreDictionary(ITurtleAccess turtle) {
         super();
         this.turtle = turtle;
-    }
-
-    public String getName() {
-        return name;
     }
 
     @Override
@@ -198,7 +193,7 @@ public class TileEntityOreDictionary extends MountedTileEntity {
 
     @Override
     public boolean equals(IPeripheral other) {
-        return (other == this);
+        return this == other;
     }
 
     private ItemStack transmute(ItemStack item) {

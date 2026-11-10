@@ -29,9 +29,12 @@ public class PeripheralDispenser extends MountedPeripheral {
         return "flinging";
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "dispense", "dispenseUp", "dispenseDown" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "dispense", "dispenseUp", "dispenseDown" };
+        return METHODS;
     }
 
     @Override

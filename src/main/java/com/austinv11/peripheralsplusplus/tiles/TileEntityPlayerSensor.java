@@ -22,7 +22,6 @@ import dan200.computercraft.api.turtle.ITurtleAccess;
 public class TileEntityPlayerSensor extends MountedTileEntity {
 
     public static String publicName = "playerSensor";
-    private String name = "tileEntityPlayerSensor";
     private HashMap<IComputerAccess, Boolean> computers = new HashMap<IComputerAccess, Boolean>();
     private Location location;
     private ITurtleAccess turtle;
@@ -49,10 +48,6 @@ public class TileEntityPlayerSensor extends MountedTileEntity {
         super.validate();
 
         if (worldObj != null) location = new Location(this);
-    }
-
-    public String getName() {
-        return name;
     }
 
     @Override
@@ -153,8 +148,8 @@ public class TileEntityPlayerSensor extends MountedTileEntity {
     }
 
     @Override
-    public boolean equals(IPeripheral other) {// FIXME idk what I'm doing
-        return (other == this);
+    public boolean equals(IPeripheral other) {
+        return this == other;
     }
 
     public void update() {

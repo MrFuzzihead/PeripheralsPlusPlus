@@ -31,7 +31,6 @@ import dan200.computercraft.api.turtle.ITurtleAccess;
 public class TileEntityChatBox extends MountedTileEntity {
 
     public static String publicName = "chatBox";
-    private String name = "tileEntityChatBox";
     private HashMap<IComputerAccess, Boolean> computers = new HashMap<IComputerAccess, Boolean>();
     /** Per-second message budget, shared by {@code say} and {@code tell}. */
     private final RateLimiter rateLimiter = new RateLimiter();
@@ -47,10 +46,6 @@ public class TileEntityChatBox extends MountedTileEntity {
         this.zCoord = turtle.getPosition().posZ;
         this.setWorldObj(turtle.getWorld());
         this.turtle = turtle;
-    }
-
-    public String getName() {
-        return name;
     }
 
     @Override
@@ -102,9 +97,12 @@ public class TileEntityChatBox extends MountedTileEntity {
         return publicName;
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "say", "tell" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "say", "tell" };
+        return METHODS;
     }
 
     @Override
@@ -189,7 +187,7 @@ public class TileEntityChatBox extends MountedTileEntity {
 
     @Override
     public boolean equals(IPeripheral other) {
-        return (other == this);
+        return this == other;
     }
 
     public static class ChatListener {

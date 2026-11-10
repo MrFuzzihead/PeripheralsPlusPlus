@@ -20,14 +20,9 @@ public class TileEntityRFCharger extends NetworkedTileEntity implements IEnergyR
     private EnergyStorage storage = new EnergyStorage(80000);// Leadstone Capacitor
 
     public static String publicName = "rfCharger";
-    private String name = "tileEntityrfCharger";
 
     public TileEntityRFCharger() {
         super();
-    }
-
-    public String getName() {
-        return name;
     }
 
     @Override

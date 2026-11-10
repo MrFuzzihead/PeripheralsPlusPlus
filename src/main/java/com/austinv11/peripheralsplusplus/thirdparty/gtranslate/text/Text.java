@@ -1,4 +1,4 @@
-package com.gtranslate.text;
+package com.austinv11.peripheralsplusplus.thirdparty.gtranslate.text;
 
 public class Text {
 

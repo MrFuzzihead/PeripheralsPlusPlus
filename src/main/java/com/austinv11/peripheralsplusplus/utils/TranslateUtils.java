@@ -5,9 +5,9 @@ import java.io.InputStream;
 import java.util.HashMap;
 import javazoom.jl.decoder.JavaLayerException;
 
-import com.gtranslate.Audio;
-import com.gtranslate.Language;
-import com.gtranslate.Translator;
+import com.austinv11.peripheralsplusplus.thirdparty.gtranslate.Audio;
+import com.austinv11.peripheralsplusplus.thirdparty.gtranslate.Language;
+import com.austinv11.peripheralsplusplus.thirdparty.gtranslate.Translator;
 
 public class TranslateUtils {
 

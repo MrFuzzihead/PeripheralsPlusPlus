@@ -32,7 +32,6 @@ import dan200.computercraft.api.peripheral.IPeripheral;
 public class TileEntityAntenna extends MountedTileEntity {
 
     public static String publicName = "antenna";
-    private String name = "tileEntityAntenna";
     private int world = 0;
     /** Attached computers. Filled from computer threads, so it must be concurrent (CODE_REVIEW.md section 5.11). */
     public final Map<IComputerAccess, Boolean> computers = new ConcurrentHashMap<IComputerAccess, Boolean>();
@@ -51,10 +50,6 @@ public class TileEntityAntenna extends MountedTileEntity {
                 .equals(this)) break;
             identifier = UUID.randomUUID();
         }
-    }
-
-    public String getName() {
-        return name;
     }
 
     @Override
@@ -76,15 +71,21 @@ public class TileEntityAntenna extends MountedTileEntity {
         return publicName;
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "getPlayers", /*
+                                                                          * Lists players wearing smart helmets linked
+                                                                          * to this antenna
+                                                                          */
+        "getHUD", /* Returns a hud handle for the given player */
+        "setLabel", /* Sets the label of the antenna */
+        "getLabel", /* Gets the current label of the antenna */
+        // ==Smart Helmet APIs end===
+        "getInfectedEntities", /* Lists the entity ids for all entities currently infected by a nanobot swarm */
+        "getInfectedEntity"/* Gets the handle for a specified entity */ };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "getPlayers", /* Lists players wearing smart helmets linked to this antenna */
-            "getHUD", /* Returns a hud handle for the given player */
-            "setLabel", /* Sets the label of the antenna */
-            "getLabel", /* Gets the current label of the antenna */
-            // ==Smart Helmet APIs end===
-            "getInfectedEntities", /* Lists the entity ids for all entities currently infected by a nanobot swarm */
-            "getInfectedEntity"/* Gets the handle for a specified entity */ };
+        return METHODS;
     }
 
     @Override
@@ -205,7 +206,7 @@ public class TileEntityAntenna extends MountedTileEntity {
 
     @Override
     public boolean equals(IPeripheral other) {
-        return (this == other);
+        return this == other;
     }
 
     public void onResponse(int id, int width, int height) {

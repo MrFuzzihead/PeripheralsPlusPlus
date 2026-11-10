@@ -26,15 +26,10 @@ public class TileEntityPeripheralContainer extends MountedNetworkedTileEntity {
     private List<Block> blocksContained = new ArrayList<Block>();
     private List<IPeripheral> peripheralsContained = new ArrayList<IPeripheral>();
     public static String publicName = "peripheralContainer";
-    private String name = "tileEntityPeripheralContainer";
     private boolean needsUpdate = false;
 
     public TileEntityPeripheralContainer() {
         super();
-    }
-
-    public String getName() {
-        return name;
     }
 
     @Override
@@ -70,9 +65,12 @@ public class TileEntityPeripheralContainer extends MountedNetworkedTileEntity {
         return publicName;
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "getContainedPeripherals", "wrapPeripheral" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "getContainedPeripherals", "wrapPeripheral" };
+        return METHODS;
     }
 
     @Override
@@ -98,7 +96,7 @@ public class TileEntityPeripheralContainer extends MountedNetworkedTileEntity {
 
     @Override
     public boolean equals(IPeripheral other) {
-        return (this == other);
+        return this == other;
     }
 
     @Override

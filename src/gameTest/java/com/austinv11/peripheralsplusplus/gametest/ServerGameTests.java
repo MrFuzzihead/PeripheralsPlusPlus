@@ -73,8 +73,14 @@ public final class ServerGameTests {
         checkChatBoxFormattingInGame();
         checkContainerRecipe();
 
-        System.out.println("[PPP-GAMETEST] " + (checks - failures) + "/" + checks + " checks passed");
         return failures;
+    }
+
+    /**
+     * @return how many assertions {@link #runAll()} executed, for the combined summary
+     */
+    public static int checkCount() {
+        return checks;
     }
 
     // ---------------------------------------------------------------------------------------------------------

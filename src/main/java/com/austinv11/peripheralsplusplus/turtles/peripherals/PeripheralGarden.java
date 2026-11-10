@@ -31,10 +31,13 @@ public class PeripheralGarden extends MountedPeripheral {
         return "gardener";
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "getGrowth", "getGrowthUp", "getGrowthDown", "fertilize",
+        "fertilizeUp", "fertilizeDown" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "getGrowth", "getGrowthUp", "getGrowthDown", "fertilize", "fertilizeUp",
-            "fertilizeDown" };
+        return METHODS;
     }
 
     @Override
@@ -102,6 +105,6 @@ public class PeripheralGarden extends MountedPeripheral {
 
     @Override
     public boolean equals(IPeripheral other) {
-        return (other == this);
+        return this == other;
     }
 }

@@ -30,9 +30,13 @@ public class LuaObjectPlayerInv implements ILuaObject {
         this.permCard = permCard;
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "getStackInSlot", "retrieveFromSlot", "pushToSlot", "push",
+        "getSize" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "getStackInSlot", "retrieveFromSlot", "pushToSlot", "push", "getSize" };
+        return METHODS;
     }
 
     @Override

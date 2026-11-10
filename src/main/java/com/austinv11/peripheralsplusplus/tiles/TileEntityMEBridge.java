@@ -54,7 +54,6 @@ import dan200.computercraft.api.peripheral.IPeripheral;
 public class TileEntityMEBridge extends MountedTileEntity implements IActionHost, IGridBlock {
 
     public static String publicName = "meBridge";
-    private String name = "tileEntityMEBridge";
     private HashMap<IComputerAccess, Boolean> computers = new HashMap<IComputerAccess, Boolean>();
     private IGridNode node;
     private boolean initialized = false;
@@ -62,10 +61,6 @@ public class TileEntityMEBridge extends MountedTileEntity implements IActionHost
 
     public TileEntityMEBridge() {
         super();
-    }
-
-    public String getName() {
-        return name;
     }
 
     @Override
@@ -103,9 +98,12 @@ public class TileEntityMEBridge extends MountedTileEntity implements IActionHost
         return publicName;
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "listAll", "listItems", "listCraft", "retrieve", "craft" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "listAll", "listItems", "listCraft", "retrieve", "craft" };
+        return METHODS;
     }
 
     @Override
@@ -274,7 +272,7 @@ public class TileEntityMEBridge extends MountedTileEntity implements IActionHost
 
     @Override
     public boolean equals(IPeripheral other) {
-        return (this == other);
+        return this == other;
     }
 
     @Override

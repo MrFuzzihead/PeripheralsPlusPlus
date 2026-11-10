@@ -1,9 +1,9 @@
-package com.gtranslate;
+package com.austinv11.peripheralsplusplus.thirdparty.gtranslate;
 
-import com.gtranslate.parsing.ParseTextDetect;
-import com.gtranslate.parsing.ParseTextTranslate;
-import com.gtranslate.text.Text;
-import com.gtranslate.text.TextTranslate;
+import com.austinv11.peripheralsplusplus.thirdparty.gtranslate.parsing.ParseTextDetect;
+import com.austinv11.peripheralsplusplus.thirdparty.gtranslate.parsing.ParseTextTranslate;
+import com.austinv11.peripheralsplusplus.thirdparty.gtranslate.text.Text;
+import com.austinv11.peripheralsplusplus.thirdparty.gtranslate.text.TextTranslate;
 
 public class Translator {
 

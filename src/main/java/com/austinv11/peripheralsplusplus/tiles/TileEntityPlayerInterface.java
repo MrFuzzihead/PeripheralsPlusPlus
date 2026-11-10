@@ -86,9 +86,13 @@ public class TileEntityPlayerInterface extends MountedTileEntityInventory {
         return this == other;
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "getPlayerInv", "setOutputSide", "setInputSide",
+        "getOutputSide", "getInputSide" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "getPlayerInv", "setOutputSide", "setInputSide", "getOutputSide", "getInputSide" };
+        return METHODS;
     }
 
     @Override

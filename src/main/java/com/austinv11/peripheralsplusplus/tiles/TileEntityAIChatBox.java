@@ -24,7 +24,6 @@ import dan200.computercraft.api.peripheral.IPeripheral;
 public class TileEntityAIChatBox extends MountedTileEntity {
 
     public static String publicName = "aiChatBox";
-    private String name = "tileEntityAIChatBox";
     private List<BotSessionLuaObject> sessions = new ArrayList<BotSessionLuaObject>();
     private ChatterBotFactory factory = new ChatterBotFactory();
     private List<IComputerAccess> computers = new ArrayList<IComputerAccess>();
@@ -33,18 +32,17 @@ public class TileEntityAIChatBox extends MountedTileEntity {
         super();
     }
 
-    public String getName() {
-        return name;
-    }
-
     @Override
     public String getType() {
         return publicName;
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "newSession", "getSession", "getAllSessions" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "newSession", "getSession", "getAllSessions" };
+        return METHODS;
     }
 
     @Override
@@ -294,8 +292,12 @@ public class TileEntityAIChatBox extends MountedTileEntity {
             this.source = source;
         }
 
+        /** Cached: ComputerCraft asks for the method list on every lookup. */
+        private static final String[] SESSION_METHODS = { "think", "thinkAsync", "getUUID", "remove" };
+
+        @Override
         public String[] getMethodNames() {
-            return new String[] { "think", "thinkAsync", "getUUID", "remove" };
+            return SESSION_METHODS;
         }
 
         public Object[] callMethod(ILuaContext context, int method, Object[] arguments)

@@ -8,11 +8,6 @@ public class TileEntityTeleporterT2 extends TileEntityTeleporter {
     }
 
     @Override
-    public String getName() {
-        return "tileEntityTeleporterT2";
-    }
-
-    @Override
     public int getMaxLinks() {
         return 8;
     }

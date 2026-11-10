@@ -1,4 +1,4 @@
-package com.gtranslate;
+package com.austinv11.peripheralsplusplus.thirdparty.gtranslate;
 
 import java.io.BufferedInputStream;
 import java.io.IOException;

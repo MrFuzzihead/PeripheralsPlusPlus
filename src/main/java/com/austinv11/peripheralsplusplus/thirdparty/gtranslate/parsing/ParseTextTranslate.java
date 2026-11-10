@@ -1,8 +1,8 @@
-package com.gtranslate.parsing;
+package com.austinv11.peripheralsplusplus.thirdparty.gtranslate.parsing;
 
-import com.gtranslate.text.Text;
-import com.gtranslate.text.TextTranslate;
-import com.gtranslate.utils.WebUtils;
+import com.austinv11.peripheralsplusplus.thirdparty.gtranslate.text.Text;
+import com.austinv11.peripheralsplusplus.thirdparty.gtranslate.text.TextTranslate;
+import com.austinv11.peripheralsplusplus.thirdparty.gtranslate.utils.WebUtils;
 
 public class ParseTextTranslate implements Parse {
 

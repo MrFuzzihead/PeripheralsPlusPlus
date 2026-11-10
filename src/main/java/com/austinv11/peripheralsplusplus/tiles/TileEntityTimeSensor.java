@@ -14,7 +14,6 @@ import dan200.computercraft.api.peripheral.IPeripheral;
 public class TileEntityTimeSensor extends MountedTileEntity {
 
     public static String publicName = "timeSensor";
-    private String name = "tileEntityTimeSensor";
 
     private TimeProfiler profiler;
 
@@ -22,18 +21,17 @@ public class TileEntityTimeSensor extends MountedTileEntity {
         super();
     }
 
-    public String getName() {
-        return name;
-    }
-
     @Override
     public String getType() {
         return publicName;
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "getDate", "getTime", "startTimer", "stopTimer" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "getDate", "getTime", "startTimer", "stopTimer" };
+        return METHODS;
     }
 
     @Override
@@ -67,6 +65,6 @@ public class TileEntityTimeSensor extends MountedTileEntity {
 
     @Override
     public boolean equals(IPeripheral other) {
-        return (other == this);
+        return this == other;
     }
 }

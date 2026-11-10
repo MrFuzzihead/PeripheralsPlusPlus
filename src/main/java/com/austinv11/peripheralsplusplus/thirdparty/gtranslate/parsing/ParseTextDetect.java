@@ -1,7 +1,7 @@
-package com.gtranslate.parsing;
+package com.austinv11.peripheralsplusplus.thirdparty.gtranslate.parsing;
 
-import com.gtranslate.text.Text;
-import com.gtranslate.utils.WebUtils;
+import com.austinv11.peripheralsplusplus.thirdparty.gtranslate.text.Text;
+import com.austinv11.peripheralsplusplus.thirdparty.gtranslate.utils.WebUtils;
 
 public class ParseTextDetect implements Parse {
 

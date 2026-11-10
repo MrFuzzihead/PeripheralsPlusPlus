@@ -18,18 +18,32 @@ public class GuiHandler implements IGuiHandler {
 
     @Override
     public Object getServerGuiElement(int id, EntityPlayer player, World world, int x, int y, int z) {
+        // The block may have been replaced between the packet being sent and the GUI opening, so the tile entity is
+        // checked rather than cast (CODE_REVIEW.md section 6.14).
+        IInventory inventory = inventoryAt(world, x, y, z);
         if (id == Reference.GUIs.ANALYZER.ordinal()) {
-            return new ContainerAnalyzer(player, (IInventory) world.getTileEntity(x, y, z), 176, 166);
+            return inventory == null ? null : new ContainerAnalyzer(player, inventory, 176, 166);
         } else if (id == Reference.GUIs.INTERACTIVE_SORTER.ordinal()) {
-            return new ContainerInteractiveSorter(player, (IInventory) world.getTileEntity(x, y, z), 176, 166);
+            return inventory == null ? null : new ContainerInteractiveSorter(player, inventory, 176, 166);
         } else if (id == Reference.GUIs.PLAYER_INTERFACE.ordinal()) {
-            return new ContainerPlayerInterface(player, (IInventory) world.getTileEntity(x, y, z), 176, 133);
-        } else if (id == Reference.GUIs.PERMCARD.ordinal()) {
-            return null;
+            return inventory == null ? null : new ContainerPlayerInterface(player, inventory, 176, 133);
         } else if (id == Reference.GUIs.RESUPPLY_STATION.ordinal()) {
-            return new ContainerResupplyStation(player.inventory, (IInventory) world.getTileEntity(x, y, z));
+            return inventory == null ? null : new ContainerResupplyStation(player.inventory, inventory);
         }
         return null;
+    }
+
+    /**
+     * @param world the world the GUI was requested in
+     * @param x     the x coordinate
+     * @param y     the y coordinate
+     * @param z     the z coordinate
+     * @return the inventory at that position, or {@code null}
+     */
+    private static IInventory inventoryAt(World world, int x, int y, int z) {
+        if (world == null) return null;
+        net.minecraft.tileentity.TileEntity tileEntity = world.getTileEntity(x, y, z);
+        return tileEntity instanceof IInventory ? (IInventory) tileEntity : null;
     }
 
     @SideOnly(Side.CLIENT)
@@ -44,9 +58,10 @@ public class GuiHandler implements IGuiHandler {
         } else if (id == Reference.GUIs.PLAYER_INTERFACE.ordinal()) {
             return new GuiPlayerInterface(player, x, y, z);
         } else if (id == Reference.GUIs.PERMCARD.ordinal()) {
-            return new GuiPermCard(player.getCurrentEquippedItem());
+            return player.getCurrentEquippedItem() == null ? null : new GuiPermCard(player.getCurrentEquippedItem());
         } else if (id == Reference.GUIs.RESUPPLY_STATION.ordinal()) {
-            return new GuiResupplyStation(player.inventory, (IInventory) world.getTileEntity(x, y, z));
+            IInventory inventory = inventoryAt(world, x, y, z);
+            return inventory == null ? null : new GuiResupplyStation(player.inventory, inventory);
         }
         return null;
     }

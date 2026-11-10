@@ -98,7 +98,7 @@ public class PeripheralChunkLoader extends MountedPeripheral {
 
     @Override
     public boolean equals(IPeripheral other) {
-        return (this == other);
+        return this == other;
     }
 
     /**

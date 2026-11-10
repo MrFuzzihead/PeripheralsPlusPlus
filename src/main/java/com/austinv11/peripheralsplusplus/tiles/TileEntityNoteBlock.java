@@ -49,9 +49,12 @@ public class TileEntityNoteBlock extends MountedTileEntity {
         return publicName;
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "playNote", "playSound" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "playNote", "playSound" };
+        return METHODS;
     }
 
     @Override

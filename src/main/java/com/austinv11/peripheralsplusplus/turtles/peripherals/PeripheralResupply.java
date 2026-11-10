@@ -32,9 +32,12 @@ public class PeripheralResupply extends MountedPeripheral {
         return "resupply";
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "link", "resupply" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "link", "resupply" };
+        return METHODS;
     }
 
     @Override

@@ -32,9 +32,12 @@ public class PeripheralRidable extends MountedPeripheral {
         return "ridable";
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "getEntity", "mountNearbyEntity", "unmount", "up" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "getEntity", "mountNearbyEntity", "unmount", "up" };
+        return METHODS;
     }
 
     @Override
@@ -137,6 +140,6 @@ public class PeripheralRidable extends MountedPeripheral {
 
     @Override
     public boolean equals(IPeripheral other) {
-        return other == this;
+        return this == other;
     }
 }

@@ -120,9 +120,13 @@ public class PeripheralXP extends MountedPeripheral {// Beware, a lot of the mat
         return "xp";
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "add", "getXP", "getLevels", "collect", "setAutoCollect",
+        "enchant" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "add", "getXP", "getLevels", "collect", "setAutoCollect", "enchant" };
+        return METHODS;
     }
 
     @Override
@@ -220,7 +224,7 @@ public class PeripheralXP extends MountedPeripheral {// Beware, a lot of the mat
 
     @Override
     public boolean equals(IPeripheral other) {
-        return (other == this);
+        return this == other;
     }
 
     private class BetterRandom extends Random {

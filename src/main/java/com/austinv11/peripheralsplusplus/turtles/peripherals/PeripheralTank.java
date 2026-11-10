@@ -55,10 +55,13 @@ public class PeripheralTank extends MountedPeripheral {
         return "tank";
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "getFluid", "fill", "drain", "empty", "emptyUp", "emptyDown",
+        "suck", "suckUp", "suckDown" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "getFluid", "fill", "drain", "empty", "emptyUp", "emptyDown", "suck", "suckUp",
-            "suckDown" };
+        return METHODS;
     }
 
     @Override
@@ -442,6 +445,6 @@ public class PeripheralTank extends MountedPeripheral {
 
     @Override
     public boolean equals(IPeripheral other) {
-        return (this == other);
+        return this == other;
     }
 }

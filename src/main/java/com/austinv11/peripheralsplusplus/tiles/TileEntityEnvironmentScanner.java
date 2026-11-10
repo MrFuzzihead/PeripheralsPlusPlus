@@ -14,7 +14,6 @@ import dan200.computercraft.api.turtle.ITurtleAccess;
 public class TileEntityEnvironmentScanner extends MountedTileEntity {
 
     public static String publicName = "environmentScanner";
-    private String name = "tileEntityEnvironmentScanner";
     private boolean isRaining = false;
     private String biome;
     private String temp;
@@ -27,10 +26,6 @@ public class TileEntityEnvironmentScanner extends MountedTileEntity {
 
     public TileEntityEnvironmentScanner(ITurtleAccess turtle) {
         this.turtle = turtle;
-    }
-
-    public String getName() {
-        return name;
     }
 
     @Override
@@ -69,9 +64,12 @@ public class TileEntityEnvironmentScanner extends MountedTileEntity {
         return publicName;
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "isRaining", "getBiome", "getTemp", "isSnow" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "isRaining", "getBiome", "getTemp", "isSnow" };
+        return METHODS;
     }
 
     @Override
@@ -93,6 +91,6 @@ public class TileEntityEnvironmentScanner extends MountedTileEntity {
 
     @Override
     public boolean equals(IPeripheral other) {
-        return (this == other);
+        return this == other;
     }
 }

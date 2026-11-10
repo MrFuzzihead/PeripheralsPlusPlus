@@ -31,16 +31,11 @@ import dan200.computercraft.api.turtle.ITurtleAccess;
 public class TileEntityTeleporter extends MountedTileEntity {
 
     public static String publicName = "teleporter";
-    private String name = "tileEntityTeleporter";
     public Stack<LinkData> links = new Stack<LinkData>();
     public String tag = null;
 
     public TileEntityTeleporter() {
         super();
-    }
-
-    public String getName() {
-        return name;
     }
 
     public int getMaxLinks() {
@@ -93,9 +88,12 @@ public class TileEntityTeleporter extends MountedTileEntity {
         return publicName;
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "teleport", "tp", "getLinks", "setName" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "teleport", "tp", "getLinks", "setName" };
+        return METHODS;
     }
 
     @Override
@@ -167,7 +165,7 @@ public class TileEntityTeleporter extends MountedTileEntity {
                 map2.put("x", links.get(i).link.posX);
                 map2.put("y", links.get(i).link.posY);
                 map2.put("z", links.get(i).link.posZ);
-                map2.put("name", name);
+                map2.put("name", tag);
                 // Lua tables are 1-based everywhere else in this mod; getLinks used to start at 0 while
                 // teleport(index) was 1-based (CODE_REVIEW.md section 4.12).
                 map1.put(i + 1, map2.clone());
@@ -176,8 +174,8 @@ public class TileEntityTeleporter extends MountedTileEntity {
         } else if (method == 3) {
             if (!(arguments.length >= 1) || !(arguments[0] instanceof String))
                 throw new LuaException("Bad argument #1 (expected string)");
-            this.name = (String) arguments[0];
-            return new Object[] { name };
+            this.tag = (String) arguments[0];
+            return new Object[] { tag };
         }
         return new Object[0];
     }
@@ -205,8 +203,8 @@ public class TileEntityTeleporter extends MountedTileEntity {
     }
 
     @Override
-    public boolean equals(IPeripheral other) {// FIXME idk what I'm doing
-        return (other == this);
+    public boolean equals(IPeripheral other) {
+        return this == other;
     }
 
     public void blockActivated(EntityPlayer player) {

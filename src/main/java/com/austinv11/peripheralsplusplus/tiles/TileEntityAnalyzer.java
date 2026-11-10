@@ -18,8 +18,6 @@ import forestry.api.genetics.ISpeciesRoot;
 
 public abstract class TileEntityAnalyzer extends MountedTileEntityInventory {
 
-    private String name = "tileEntityAnalyzer";
-
     public TileEntityAnalyzer() {
         super();
         this.invName = "Analyzer";
@@ -28,10 +26,6 @@ public abstract class TileEntityAnalyzer extends MountedTileEntityInventory {
     @Override
     public int getSize() {
         return 1;
-    }
-
-    public String getName() {
-        return name;
     }
 
     public abstract String getPublicName();
@@ -51,9 +45,12 @@ public abstract class TileEntityAnalyzer extends MountedTileEntityInventory {
         return getPublicName();
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "analyze", "isMember" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "analyze", "isMember" };
+        return METHODS;
     }
 
     @Override
@@ -80,7 +77,7 @@ public abstract class TileEntityAnalyzer extends MountedTileEntityInventory {
 
     @Override
     public boolean equals(IPeripheral other) {
-        return (this == other);
+        return this == other;
     }
 
     protected ISpeciesRoot getRoot() {

@@ -39,7 +39,6 @@ import dan200.computercraft.api.peripheral.IPeripheral;
 public class TileEntityInteractiveSorter extends MountedTileEntityInventory {
 
     public static String publicName = "interactiveSorter";
-    private String name = "tileEntityInteractiveSorter";
     private List<IComputerAccess> computers = new ArrayList<IComputerAccess>();
 
     public TileEntityInteractiveSorter() {
@@ -51,18 +50,17 @@ public class TileEntityInteractiveSorter extends MountedTileEntityInventory {
         return 1;
     }
 
-    public String getName() {
-        return name;
-    }
-
     @Override
     public String getType() {
         return publicName;
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "analyze", "push", "pull", "isInventoryPresent" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "analyze", "push", "pull", "isInventoryPresent" };
+        return METHODS;
     }
 
     @Override
@@ -186,7 +184,7 @@ public class TileEntityInteractiveSorter extends MountedTileEntityInventory {
 
     @Override
     public boolean equals(IPeripheral other) {
-        return other == this;
+        return this == other;
     }
 
     @Override

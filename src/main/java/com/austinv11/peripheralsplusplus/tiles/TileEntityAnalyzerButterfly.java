@@ -17,11 +17,6 @@ public class TileEntityAnalyzerButterfly extends TileEntityAnalyzer {
     }
 
     @Override
-    public String getName() {
-        return "tileEntityButterflyAnalyzer";
-    }
-
-    @Override
     public String getPublicName() {
         return publicName;
     }

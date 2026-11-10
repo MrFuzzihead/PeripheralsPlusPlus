@@ -30,9 +30,12 @@ public class PeripheralSignReader extends MountedPeripheral {
         return "signReader";
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "read", "readUp", "readDown" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "read", "readUp", "readDown" };
+        return METHODS;
     }
 
     @Override
@@ -71,6 +74,6 @@ public class PeripheralSignReader extends MountedPeripheral {
 
     @Override
     public boolean equals(IPeripheral other) {
-        return (other == this);
+        return this == other;
     }
 }

@@ -8,8 +8,8 @@ import com.austinv11.peripheralsplusplus.PeripheralsPlusPlus;
 import com.austinv11.peripheralsplusplus.network.AudioPacket;
 import com.austinv11.peripheralsplusplus.network.SynthPacket;
 import com.austinv11.peripheralsplusplus.reference.Config;
+import com.austinv11.peripheralsplusplus.thirdparty.gtranslate.Language;
 import com.austinv11.peripheralsplusplus.utils.TranslateUtils;
-import com.gtranslate.Language;
 
 import cpw.mods.fml.common.network.NetworkRegistry;
 import dan200.computercraft.api.lua.ILuaContext;
@@ -23,7 +23,6 @@ import dan200.computercraft.api.turtle.TurtleSide;
 public class TileEntitySpeaker extends MountedTileEntity {
 
     public static String publicName = "speaker";
-    private String name = "tileEntitySpeaker";
     private ITurtleAccess turtle;
     private TurtleSide side = null;
     private int id;
@@ -42,10 +41,6 @@ public class TileEntitySpeaker extends MountedTileEntity {
         this();
         this.turtle = turtle;
         this.side = side;
-    }
-
-    public String getName() {
-        return name;
     }
 
     @Override
@@ -80,10 +75,13 @@ public class TileEntitySpeaker extends MountedTileEntity {
         return publicName;
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "speak",
+        "synthesize" /* text, [range, [voice, [pitch, [pitchRange, [pitchShift, [rate, [volume, [wait]]]]]]]] */ };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "speak",
-            "synthesize" /* text, [range, [voice, [pitch, [pitchRange, [pitchShift, [rate, [volume, [wait]]]]]]]] */ };
+        return METHODS;
     }
 
     @Override
@@ -197,7 +195,7 @@ public class TileEntitySpeaker extends MountedTileEntity {
 
     @Override
     public boolean equals(IPeripheral other) {
-        return (this == other);
+        return this == other;
     }
 
     /**

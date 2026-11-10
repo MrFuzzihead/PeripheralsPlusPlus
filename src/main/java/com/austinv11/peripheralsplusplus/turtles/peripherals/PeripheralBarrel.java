@@ -56,10 +56,13 @@ public class PeripheralBarrel extends MountedPeripheral {
         return "barrel";
     }
 
+    /** Cached: ComputerCraft asks for the method list on every lookup. */
+    private static final String[] METHODS = new String[] { "get", "put", "getUnlocalizedName", "getLocalizedName",
+        "getItemID", "getAmount", "getOreDictEntries" };
+
     @Override
     public String[] getMethodNames() {
-        return new String[] { "get", "put", "getUnlocalizedName", "getLocalizedName", "getItemID", "getAmount",
-            "getOreDictEntries" };
+        return METHODS;
     }
 
     @Override
@@ -151,7 +154,7 @@ public class PeripheralBarrel extends MountedPeripheral {
 
     @Override
     public boolean equals(IPeripheral other) {
-        return (this == other);
+        return this == other;
     }
 
     public void update() {

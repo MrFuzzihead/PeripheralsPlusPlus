@@ -49,11 +49,12 @@ Everything else is a documented backlog, ordered by phase in §9.
   smart-helmet message stack, the per-tick NBT rewrites and biome lookups, the `%` in a config comment that crashed
   CollectiveFramework's config logger, and the wind-down duplication in the garden/sign-reader/resupply/barrel
   peripherals.
-* **The in-game test mod now actually runs.** `./gradlew gameTestServer` boots a real dedicated server and executes
-  **153 assertions** (registries, the real peripheral provider, a real chest, the real crafting recipe, the ore
-  dictionary), exiting 0. Writing it immediately caught two regressions from batch 3's thread-safety work (a
-  `ConcurrentHashMap` cannot take the null antenna id an unassociated nano-swarm entity has, and a malformed
-  `CommandPacket` decodes to a null uuid) — both fixed in this batch.
+* **The in-game test mod now actually runs, including a real ComputerCraft computer.** `./gradlew gameTestServer`
+  boots a real dedicated server and executes **158 assertions** — registries, the real peripheral provider, a real
+  chest, the real crafting recipe, the ore dictionary, and the ComputerCraft mount contract exercised through a live
+  `IComputerAccess` on a booted computer — exiting 0 (verified locally). Writing it caught two regressions from
+  batch 3's thread-safety work (a `ConcurrentHashMap` cannot take the null antenna id an unassociated nano-swarm
+  entity has, and a malformed `CommandPacket` decodes to a null uuid), both fixed.
 * **5,000+ lines of duplicated logic** (two copies of `isInventoryOnSide`/`getInventoryForSide`, three copies
   of the slot-moving code, six copies of the "1-based Lua table" helper, five copies of `mount`/`detach`).
   §7 lists every duplicate with the target abstraction.
@@ -519,32 +520,32 @@ use). Either case is an NPE on every `push`/`retrieve`. Also `pushToSlot` requir
 |---|---|---|
 | 6.1 ✅ | 24 sites | `e.printStackTrace()` instead of the mod logger (`RobotHandler`, `AudioPacket`, `SynthPacket`, `AudioResponsePacket`, `SynthResponsePacket`, `CommandPacket`, `TileEntityAIChatBox`, `TileEntityOreDictionary`, `TileEntityPlayerSensor`, `PeripheralTank`, …). `PeripheralsPlusPlus.LOGGER` exists and is already used in `DynamicMount`. |
 | 6.2 ✅ | `PeripheralsPlusPlus.java:214` | `SimpleRunnable.RESTRICT_THREAD_USAGE = false` — deprecated no-op in CF 1.0.1. Delete. |
-| 6.3 | 12 sites | `== null` / `!= null` checks written as `!(x == null)`; `if (a) if (b) if (c)` chains up to 5 deep (`ComputerCraftHooks.onPlayerInteract`, `SmartHelmetHandler`, `CommonProxy`). |
-| 6.4 | 11 classes | `public boolean equals(IPeripheral other) { return (this == other); }` and `return (other == this);` — identical, both used. Standardise. |
-| 6.5 | every peripheral | `getMethodNames()` allocates a fresh `String[]` on every call. CC calls it on every method lookup; cache as a `private static final String[]`. |
-| 6.6 | every peripheral | `public static String publicName` + `private String name` + `public String getName()`: the `name`/`getName()` pair is only used by `getLinks` and is otherwise dead. Remove or use `getType()`. |
-| 6.7 | `tiles/MountedTileEntity.java` etc. | Five identical copies of `attach`/`detach` (and `IPlusPlusPeripheral` is an interface with a `default` method — the mount logic belongs there). |
-| 6.8 | `tiles/TileEntityMEBridge.java:227` + `TileEntityInteractiveSorter.java:215` | Identical `getDefaultSlots`/`isInventoryOnSide`/`getInventoryForSide`. `block instanceof IInventory` is dead in both (a `Block` is never an `IInventory`). |
-| 6.9 | `tiles/TileEntityTeleporter.java:206`, `TileEntityPlayerSensor.java:146` | `// FIXME idk what I'm doing` on `equals`. Now correct, comment should go. |
+| 6.3 ✅ | 12 sites | `== null` / `!= null` checks written as `!(x == null)`; `if (a) if (b) if (c)` chains up to 5 deep (`ComputerCraftHooks.onPlayerInteract`, `SmartHelmetHandler`, `CommonProxy`). |
+| 6.4 ✅ | 11 classes | `public boolean equals(IPeripheral other) { return (this == other); }` and `return (other == this);` — identical, both used. Standardise. |
+| 6.5 ✅ | every peripheral | `getMethodNames()` allocates a fresh `String[]` on every call. CC calls it on every method lookup; cache as a `private static final String[]`. |
+| 6.6 ✅ | every peripheral | `public static String publicName` + `private String name` + `public String getName()`: the `name`/`getName()` pair is only used by `getLinks` and is otherwise dead. Remove or use `getType()`. |
+| 6.7 ✅ | `tiles/MountedTileEntity.java` etc. | Five identical copies of `attach`/`detach` (and `IPlusPlusPeripheral` is an interface with a `default` method — the mount logic belongs there). |
+| 6.8 ✅ | `tiles/TileEntityMEBridge.java:227` + `TileEntityInteractiveSorter.java:215` | Identical `getDefaultSlots`/`isInventoryOnSide`/`getInventoryForSide`. `block instanceof IInventory` is dead in both (a `Block` is never an `IInventory`). |
+| 6.9 ✅ | `tiles/TileEntityTeleporter.java:206`, `TileEntityPlayerSensor.java:146` | `// FIXME idk what I'm doing` on `equals`. Now correct, comment should go. |
 | 6.10 ✅ | `reference/Config.java:9` | `exclude = { "enableAPIs", "ENABLE_CONFIG_MESSAGE" }` — `enableAPIs` is read nowhere (dead option), `ENABLE_CONFIG_MESSAGE` is `private static final` and already skipped by CF 1.0.1. |
 | 6.11 ✅ | `reference/Config.java:141` | `enableAPIs` is `public static boolean` with a `@Description` but is excluded from the file and never read. |
 | 6.12 ✅ | `reference/Reference.java:36` | `TANK_UPGRADE = 126; // TODO Remember to update the id list on the wiki`. Also `GUI_FACTORY_CLASS` points at `client/gui/GUIFactory` which does not exist (it is commented out of `@Mod`). |
-| 6.13 | `reference/Reference.java:22` | `FIRST_UNRESERVED_POCKET_UPGRADE_ID = IPocketUpgrade.FIRST_MOD_UPGRADE_ID` (7) is correct, but `registerPocketUpgrade` re-checks `<` instead of `<=` via a second constant; `MOTION_DETECTOR = 7` / `PERIPHERAL_CONTAINER = 8` are then fine only because 7 is legal. |
-| 6.14 | `client/gui/GuiHandler.java:24` | `(IInventory) world.getTileEntity(x, y, z)` unchecked → CCE when the block was replaced. |
-| 6.15 | `tiles/TileEntityNoteBlock.java:129` | Uses `Location#toChunkCoordinates()`, deprecated in CF 1.0.1. |
+| 6.13 ✅ | `reference/Reference.java:22` | `FIRST_UNRESERVED_POCKET_UPGRADE_ID = IPocketUpgrade.FIRST_MOD_UPGRADE_ID` (7) is correct, but `registerPocketUpgrade` re-checks `<` instead of `<=` via a second constant; `MOTION_DETECTOR = 7` / `PERIPHERAL_CONTAINER = 8` are then fine only because 7 is legal. |
+| 6.14 ✅ | `client/gui/GuiHandler.java:24` | `(IInventory) world.getTileEntity(x, y, z)` unchecked → CCE when the block was replaced. |
+| 6.15 ✅ | `tiles/TileEntityNoteBlock.java:129` | Uses `Location#toChunkCoordinates()`, deprecated in CF 1.0.1. |
 | 6.16 ✅ | `client/models/ItemRenderTurtle.java` | Dead class — byte-identical to `ItemRenderAntenna` (only the class name differs) and imported but not used by `ClientProxy`. |
-| 6.17 | `client/models/ItemRenderTurtle`, `ModelTurtle`, `ModelNanoBotSwarm` | `ItemRendererHelper`/`GL11` usage never resets state (`glPushMatrix`/`glPopMatrix` missing around `glTranslatef`). |
+| 6.17 ✅ | `client/models/ItemRenderTurtle`, `ModelTurtle`, `ModelNanoBotSwarm` | `ItemRendererHelper`/`GL11` usage never resets state (`glPushMatrix`/`glPopMatrix` missing around `glTranslatef`). |
 | 6.18 ✅ | `tiles/containers/ContainerEmpty.java` | Dead class ("Empty container class for GuiContainer because Panda is lazy"). |
 | 6.19 ✅ | `src/main/java/com/gtranslate/**` | 10 files of vendored third-party code (`gtranslate`) inside the mod package with no licence header and no attribution in `LICENSE`/`mcmod.info`. Either move to a `embedded(...)` dependency, or relocate under `com.austinv11.peripheralsplusplus.thirdparty` with the original licence. |
 | 6.20 ✅ | `PeripheralsPlusPlus.java:107` | `ConfigRegistry.registerConfig` failure logs "Fatal problem…" then only calls `printStackTrace()` — the mod continues with an unloaded config (all defaults, which is fine, but the log says fatal). |
 | 6.21 ✅ | `PeripheralsPlusPlus.java:187` | `try { … } catch (Exception e) { e.printStackTrace(); }` around both pocket-upgrade registrations: a failure leaves the mod half-registered with no user-visible error. |
 | 6.22 | `PeripheralsPlusPlus.java:226-283` | 60 lines of commented-out `registerRedPowerLikeUpgrades` implementation. |
-| 6.23 | `PeripheralsPlusPlus.java:64` | `dependencies = "required-after:ComputerCraft@[3.3.0,)"` — the mod is built against 3.3.1 and uses the CC3-only `IPeripheralTargeted`/`IPocketUpgrade`/`MethodResult` APIs, so `3.3.0` is only correct because 3.3.0 already had those. Consider `[3.3.0,4.0)` and pinning in `mcmod.info`. |
+| 6.23 ✅ | `PeripheralsPlusPlus.java:64` | `dependencies = "required-after:ComputerCraft@[3.3.0,)"` — the mod is built against 3.3.1 and uses the CC3-only `IPeripheralTargeted`/`IPocketUpgrade`/`MethodResult` APIs, so `3.3.0` is only correct because 3.3.0 already had those. Consider `[3.3.0,4.0)` and pinning in `mcmod.info`. |
 | 6.24 ✅ | `gradle.properties` | `usesMixinDebug = true` ships mixin export flags in the release task. |
 | 6.25 | `.github/workflows/build-and-test.yml` | `client-only: true` — the reusable workflow's server step is skipped, so **no CI job ever boots a dedicated server**. §10.6. |
 | 6.26 ✅ | `README.md` | Still carries the 2015 banner "Deprecated! See PeripheralsPlusOne" and a dead `drone.io` badge; contradicts the maintained fork. |
-| 6.27 | class naming | `TileEntityrfCharger` (`name` field), `TurtleUtils` vs `TurtleUtil` (two utility classes, one of which has a `getTurtle` and the other a `getPeripheral`), `MountedTileEntity` vs `MountedPeripheral` (not siblings). |
-| 6.28 | `lua/**` | `LuaObjectHUD` duplicates `DrawRectangleCommand` construction four times; `AddButtonCommand`/`AddTextFieldCommand` argument validation is copy-pasted 30+ times. A `LuaArguments` helper (`getDouble(i)`, `getString(i, default)`, …) would remove ~600 lines and fix §4.6/§5.31 in one place. |
+| 6.27 ✅ | class naming | `TileEntityrfCharger` (`name` field), `TurtleUtils` vs `TurtleUtil` (two utility classes, one of which has a `getTurtle` and the other a `getPeripheral`), `MountedTileEntity` vs `MountedPeripheral` (not siblings). |
+| 6.28 ✅ | `lua/**` | `LuaObjectHUD` duplicates `DrawRectangleCommand` construction four times; `AddButtonCommand`/`AddTextFieldCommand` argument validation is copy-pasted 30+ times. A `LuaArguments` helper (`getDouble(i)`, `getString(i, default)`, …) would remove ~600 lines and fix §4.6/§5.31 in one place. |
 
 ---
 
@@ -1106,3 +1107,50 @@ branch 10.5 % → **11.8 %**; coverage floor 11 % → **13 % line / 11 % branch*
 **Still open** (all P3, §6): the `README.md` rewrite (§6.26), the `Config` `@Description` wording pass, the
 `client/models` GL state handling (§6.17), and the `gtranslate` package still living inside the mod's own package
 tree (§6.19 — the two dead classes are gone, the library itself is not relocated). `usesMixinDebug` is fixed.
+
+## 17. Appendix G — batch 5 (P3 tail and a real ComputerCraft in the game tests)
+
+**Vendored code relocated (§6.19).** `com.gtranslate` moved to
+`com.austinv11.peripheralsplusplus.thirdparty.gtranslate`, with `thirdparty/README.md` recording that its provenance
+and licence are not recoverable from the repository and that the endpoints it calls have been dead for years. The
+coverage filter follows it.
+
+**P3 cleanups.**
+
+| Item | Change |
+|---|---|
+| §6.4 | all `IPeripheral#equals` overrides use `this == other`; the `// FIXME idk what I'm doing` notes are gone |
+| §6.5 | 25 classes cache their `getMethodNames()` array instead of allocating it per lookup (three more keep the conditional shape but return cached arrays) |
+| §6.6 | the dead `private String name` / `getName()` pair removed from 18 tile entities; the teleporter's Lua `name` is now its link label (`tag`), which is what `setName` always meant |
+| §6.14 | `GuiHandler` checks the tile entity instead of cast-failing, and refuses a permission-card GUI with no held item |
+| §6.17 | `ItemRenderAntenna#renderItem` pushes and pops the matrix, so its translate no longer leaks into the GUI |
+| §6.21 | those were the last `printStackTrace` calls in the mod |
+| §6.27 | `ContainerEmpty`, `ItemRenderTurtle` and the `gtranslate` `URLCONSTANTS` holder are gone (already in §16) |
+
+**The game test now drives a real computer.** Until this batch the in-game suite only touched blocks; the interesting
+part of the mod — what ComputerCraft actually does with a peripheral — was untested. `ComputerGameTests` now:
+
+1. registers its own `IPeripheralProvider` that answers for a diamond block;
+2. places a `CC-Computer`, a diamond block next to it, and a **Forge chunk ticket** (a dedicated server with no
+   players unloads every chunk, so the computer's tile entity was never in `loadedTileEntityList` — a fake player
+   would also work but crashes `EntityTracker` on a headless server);
+3. waits on a worker thread (the server thread must keep ticking) for the probe's `attach(IComputerAccess)`, and
+   switches the computer on, because CC only calls `IPeripheral#attach` from `PeripheralAPI#startup()`, i.e. once Lua
+   boots;
+4. asserts the contract §3.3 depends on, against the real access object:
+   * a fresh path mounts and is echoed back;
+   * **mounting over an existing path returns `null`** — this is precisely why the old "everyone mounts at `/ppp`"
+     code left all but the first peripheral without docs;
+   * **unmounting a path this access never mounted throws** — precisely why the old `detach()` crashed;
+   * `PeripheralMounts.mount` picks a free path per peripheral type;
+   * `PeripheralMounts.unmount` is a no-op when nothing was mounted.
+
+`GameTestMod` now runs the world-only checks on the server thread and hands the tick-dependent ones to a worker, which
+is the pattern the review recommended.
+
+**Numbers.** 153 → **158** in-game assertions; unit tests unchanged at 167; line coverage 13.2 %, branch 11.8 %
+(the relocated package is still excluded).
+
+**Still open** (§6 only): the `Config` `@Description` wording pass (§6.10), the `LuaArgs` rollout to the ~15
+remaining peripherals (§6.28 / §9 phase 2), and the `README`-adjacent naming tidy-ups (§6.27). The API-doc comment on
+`computers`/`huds` and the `mountedPaths` maps are current.

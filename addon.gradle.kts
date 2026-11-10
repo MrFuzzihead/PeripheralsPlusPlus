@@ -92,7 +92,7 @@ fun jacocoClassDirs() = project.files(mainSourceSet.output.classesDirs).asFileTr
         "com/austinv11/peripheralsplusplus/Tags.class",
         "com/austinv11/peripheralsplusplus/client/**",
         "com/austinv11/peripheralsplusplus/mixins/**",
-        "com/gtranslate/**"
+        "com/austinv11/peripheralsplusplus/thirdparty/**"
     )
 }
 

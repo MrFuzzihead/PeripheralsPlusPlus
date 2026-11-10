@@ -55,7 +55,7 @@ public class PeripheralMotionDetector extends MountedPeripheral {
 
     @Override
     public boolean equals(IPeripheral other) {
-        return other == this;
+        return this == other;
     }
 
     public void update(Entity entity) {
