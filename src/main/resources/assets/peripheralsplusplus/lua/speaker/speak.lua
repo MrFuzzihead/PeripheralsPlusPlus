@@ -1,10 +1,26 @@
 --[[
 Created by austinv11
+
+Usage: speak <text> [text...]
+Speaks each argument, waiting for the speaker to report completion.
 ]]
-tArgs = {...}
-local LANGUAGE = "English"--Change this to change the voice
+local LANGUAGE = "English" -- change this to change the voice
+
 local p = peripheral.find("speaker")
-for key,value in pairs(tArgs) do
-  p.speak(value, 64, LANGUAGE)--Speaking
-  local event, text, lang = os.pullEvent("speechComplete")--Waiting for the speech to complete
+if not p then
+  print("No speaker attached.")
+  return
+end
+
+local words = { ... }
+if #words == 0 then
+  print("Usage: speak <text> [text...]")
+  return
+end
+
+for _, value in pairs(words) do
+  if p.speak(value, 64, LANGUAGE) then
+    -- Only wait when the peripheral accepted the request; otherwise the event never comes.
+    os.pullEvent("speechComplete")
   end
+end

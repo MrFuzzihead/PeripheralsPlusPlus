@@ -65,7 +65,10 @@ public class TileEntityEnvironmentScanner extends MountedTileEntity {
     }
 
     /** Cached: ComputerCraft asks for the method list on every lookup. */
-    private static final String[] METHODS = new String[] { "isRaining", "getBiome", "getTemp", "isSnow" };
+    // getTemperature is kept as an alias for getTemp: the bundled temperature.lua calls it, and players' saved
+    // programs may too.
+    private static final String[] METHODS = new String[] { "isRaining", "getBiome", "getTemp", "getTemperature",
+        "isSnow" };
 
     @Override
     public String[] getMethodNames() {
@@ -82,8 +85,9 @@ public class TileEntityEnvironmentScanner extends MountedTileEntity {
             case 1:
                 return new Object[] { biome };
             case 2:
-                return new Object[] { temp };
             case 3:
+                return new Object[] { temp };
+            case 4:
                 return new Object[] { isSnow };
         }
         return new Object[0];

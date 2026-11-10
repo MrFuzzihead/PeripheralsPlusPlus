@@ -77,7 +77,9 @@ public class TileEntitiesTest {
         Assert.assertArrayEquals(new Object[] { true }, scanner.callMethod(null, null, 0, new Object[0]));
         Assert.assertArrayEquals(new Object[] { "Plains" }, scanner.callMethod(null, null, 1, new Object[0]));
         Assert.assertArrayEquals(new Object[] { "MEDIUM" }, scanner.callMethod(null, null, 2, new Object[0]));
-        Assert.assertArrayEquals(new Object[] { true }, scanner.callMethod(null, null, 3, new Object[0]));
+        // getTemperature is an alias for getTemp, kept for the bundled temperature.lua.
+        Assert.assertArrayEquals(new Object[] { "MEDIUM" }, scanner.callMethod(null, null, 3, new Object[0]));
+        Assert.assertArrayEquals(new Object[] { true }, scanner.callMethod(null, null, 4, new Object[0]));
     }
 
     @Test
@@ -106,8 +108,8 @@ public class TileEntitiesTest {
     }
 
     @Test
-    public void theScannerExposesFourMethods() {
-        Assert.assertEquals(4, scanner().getMethodNames().length);
+    public void theScannerExposesFiveMethods() {
+        Assert.assertEquals(5, scanner().getMethodNames().length);
         Assert.assertEquals("environmentScanner", scanner().getType());
     }
 

@@ -1,10 +1,11 @@
 --[[
 Created by Fxz_y
 ]]
-p = peripheral.find("antenna")
-if p then
-  list = p.getPlayers()
-  for i,k in pairs(list) do
-    print("-"..k)
-  end
+local p = peripheral.find("antenna")
+if not p then
+  print("No antenna attached.")
+  return
+end
+for _, name in pairs(p.getPlayers()) do
+  print("-" .. tostring(name))
 end

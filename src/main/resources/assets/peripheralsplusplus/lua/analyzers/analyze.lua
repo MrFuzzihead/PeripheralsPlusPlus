@@ -1,28 +1,32 @@
 --[[
 Created by Fxz_y
 ]]
-analyzer = {"beeAnalyzer","butterflyAnalyzer","treeAnalyzer"} --The different analyzer variations
+local analyzers = { "beeAnalyzer", "butterflyAnalyzer", "treeAnalyzer" }
+
 local p
-for k,v in pairs(analyzer) do
-  p = peripheral.find(v) --Attempting to wrap the peripheral
+for _, name in pairs(analyzers) do
+  p = peripheral.find(name)
   if p then
     break
   end
 end
-member = p.isMember() --Checking if there is a valid item in the analyzer
-data = p.analyze() --Data from the species
-if member then
-  for k,v in pairs(data) do --Looping through table
-    if type(v) == "table" then
-      for l,w in pairs(v) do
-        v = string.lower(tostring(v))
-        print(tostring(k)..": "..tostring(w))
-      end
-    else
-      v = string.lower(tostring(v))
-      print(tostring(k)..": "..v)
-    end
-  end
-else
+
+if not p then
+  print("No analyzer attached.")
+  return
+end
+
+if not p.isMember() then
   print("The item in the analyzer can't be recognised!")
+  return
+end
+
+for key, value in pairs(p.analyze()) do
+  if type(value) == "table" then
+    for subKey, subValue in pairs(value) do
+      print(tostring(key) .. "." .. tostring(subKey) .. ": " .. string.lower(tostring(subValue)))
+    end
+  else
+    print(tostring(key) .. ": " .. string.lower(tostring(value)))
+  end
 end

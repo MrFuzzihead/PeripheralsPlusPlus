@@ -1352,3 +1352,50 @@ the Forestry analyzers, `TileEntityResupplyStation`'s success path, the rest of 
 `init`/`blocks` recipe and registration tables (game test), ~290 are `network` handler bodies (they run on the netty
 thread and need a `MessageContext`), ~250 are `utils`/`entities`, and ~160 are the `event/handler` bodies. The
 remainder is `PeripheralsPlusPlus` itself (init wiring) and the excluded `client/**`.
+
+## 22. Appendix L — batch 10 (the bundled Lua programs)
+
+**The gap.** Until this batch the 20 bundled Lua programs were only checked for "the file exists, is listed in
+`index.json`, and is non-empty". They were never compiled, never run and never reviewed. A syntax error, or a call to a
+peripheral method that had been renamed, would have shipped and only shown up when a player ran the program.
+
+**`LuaScriptsTest` now compiles all of them** with ComputerCraft's own Lua 5.1 compiler (Cobalt, from the CC dev jar)
+and asserts:
+
+| Check | Why |
+|---|---|
+| every listed script exists / every script is listed | a script added to a directory but not to its manifest is invisible to the mount, so it ships unreachable |
+| every script compiles | catches syntax errors, unbalanced blocks, bad escapes and invalid varargs, using the exact compiler the game uses |
+| **every `p.<method>(` names a real peripheral method** | this is the guard for the bug found below |
+| no CRLF | `.gitattributes` says LF; 17 files were committed with CRLF |
+| no `TODO`/`FIXME`/`XXX` | notes-to-self in a shipped example program |
+| no accidental globals | these programs are copied to disk and run from the shell, so an undeclared assignment leaks into the shared `_ENV` |
+
+**A regression the scripts had already suffered.** Batch 3 removed `getTemperature` from the environment scanner's
+method table (it was an exact duplicate of `getTemp`). The bundled `temperature.lua` calls `getTemperature()`, so it had
+been broken since that batch — and nothing noticed. `getTemperature` is restored as a documented alias, and the new
+method cross-check makes that class of breakage a test failure.
+
+**Lua review findings, all fixed.**
+
+| Script | Defect |
+|---|---|
+| `chatBox/talk.lua` | five accidental globals; no `peripheral.find` nil guard, so it errored with "attempt to index nil" on a computer with no chat box; CRLF |
+| `feeder/feed.lua` | `for i = 1, amount` with `amount = tArgs[1]` is a runtime error when no argument is given |
+| `analyzers/analyze.lua` | the lower-cased value was computed into `v` but `w` was printed, so the lower-casing was dead; no nil guard for "none of the three analyzers present" |
+| `oreDictionary/oreDictionary.lua` | `oreDict, data = os.pullEvent("oreDict")` makes `oreDict` the event *name* (always truthy), so the `else` branch was unreachable |
+| `oreDictionary/oreDictionaryTurtle.lua` | `if count == 0 … elseif count ~= 0` made the third branch dead; `continue` leaked |
+| `playerSensor/checkClick.lua` | same `pullEvent` mistake; `click` was always the event name |
+| `noteBlock/note.lua` | `tonumber` results used in a comparison without a nil check; `tArgs` leaked |
+| `noteBlock/sound.lua` | passed `nil` volume/pitch straight through, and linked to a dead Minecraft Forum thread |
+| `speaker/speak.lua` | no nil guard, and it waited for `speechComplete` even when `speak` failed — a permanent hang |
+| `antenna/helmet.lua` | 50 accidental globals, and `getHUD` returning nil (player offline) was not handled |
+| `antenna/helmetList.lua`, `environmentScanner/*.lua`, `compass/getDirection.lua`, `peripheralContainer/container.lua`, `playerSensor/{nearbyPlayers,onlinePlayers}.lua` | no `peripheral.find` nil guard |
+| `barrel/barrel.lua` | eight globals, an `unlocalizedName` read before it was ever set, and an event loop that could spin on unauthorised characters |
+| `xp/enchanting.lua` | `printOut` read `levels`/`xp` globals; `enchant()` compared `tonumber(levels)` against a string; the on/off branches duplicated 30 lines |
+
+Every script now uses `local`, guards `peripheral.find`, and validates the numbers it parses. All 20 still compile and
+the manifests are unchanged.
+
+**Numbers.** 350 → **357** tests; line 33.1 % → **33.4 %** (the Lua files are resources, so they are not in the Java
+denominator — this batch is worth more than the number suggests). In-game suite unchanged at 158.

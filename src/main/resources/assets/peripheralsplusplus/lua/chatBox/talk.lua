@@ -1,14 +1,28 @@
 --[[
 Created by Fxz_y
+
+Usage: talk <sender> <message> [receiver]
+Sends a public message, or a private one when a receiver is named.
 ]]
-tArgs = {...} -- Arguments(please always use "..." for strings
-sender = tArgs[1] -- Name of Sender
-message = tArgs[2] -- Message
-receiver = tArgs[3] -- Name of receiver(only for private messages)
-p = peripheral.find("chatBox") -- Wrapping of the chatbox
-message = sender..": "..message -- Adding the sender's name to the message
-if receiver then -- Checking for a receiver
-  p.tell(receiver, message) -- Sending private message
-else -- No Receiver
-  p.say(message) -- Sending public message
+local tArgs = { ... }
+local sender = tArgs[1] or "computer"
+local message = tArgs[2]
+local receiver = tArgs[3]
+
+if not message then
+  print("Usage: talk <sender> <message> [receiver]")
+  return
+end
+
+local p = peripheral.find("chatBox")
+if not p then
+  print("No chat box attached.")
+  return
+end
+
+local line = sender .. ": " .. message
+if receiver then
+  p.tell(receiver, line)
+else
+  p.say(line)
 end

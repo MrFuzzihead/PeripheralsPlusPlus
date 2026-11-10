@@ -51,10 +51,13 @@ toolchain the plain tasks use.
 
 | Command | What it runs |
 |---|---|
-| `./gradlew test` | 350 headless JUnit 4 tests (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
+| `./gradlew test` | 357 headless JUnit 4 tests (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
 | `./gradlew check` | the above plus Spotless, Checkstyle, the coverage floor and the gameTest compile |
 | `./gradlew gameTestServer` | boots a real dedicated server and runs 158 in-game assertions, then exits with the result |
 | `./gradlew runServer25 -PsmokeTest` | boots a real server, prints `PERIPHERALSPLUSPLUS_SMOKE_TEST_OK` and exits |
+
+The bundled Lua programs are compiled by `LuaScriptsTest` with ComputerCraft's own Lua 5.1 compiler, and every
+peripheral method they call is cross-checked against the Java `getMethodNames()`.
 
 The in-game mod lives in `src/gameTest/java` and is never shipped. It covers what cannot be tested headless: the real
 block/item registries, the real peripheral provider, inventory moves against a real chest, the crafting recipe, the ore

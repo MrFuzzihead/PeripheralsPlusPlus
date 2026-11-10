@@ -1,16 +1,21 @@
 --[[
 Created by Fxz_y
+
+Usage: sound <sound> <volume> <pitch>
+Vanilla sound names look like "random.wood_click" or "mob.zombie.say".
 ]]
-p = peripheral.find("noteBlock")
-if p then
-  tArgs = {...}
-  if not tArgs[1] then
-    print('Usage: <"Sound"> <volume> <pitch>')
-    print('For all vanilla sounds I refer you to: http://www.minecraftforum.net/forums/mapping-and-modding/mapping-and-modding-tutorials/1571574-all-minecraft-playsound-file-name')
-  else
-    sound = tArgs[1]
-    volume = tonumber(tArgs[2])
-    pitch = tonumber(tArgs[3])
-    p.playSound(sound, volume, pitch)
-  end
+local p = peripheral.find("noteBlock")
+if not p then
+  print("No note block attached.")
+  return
 end
+
+local tArgs = { ... }
+local sound = tArgs[1]
+local volume = tonumber(tArgs[2])
+local pitch = tonumber(tArgs[3])
+if not sound or not volume or not pitch then
+  print("Usage: sound <sound> <volume> <pitch>")
+  return
+end
+p.playSound(sound, volume, pitch)
