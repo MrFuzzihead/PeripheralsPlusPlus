@@ -82,7 +82,17 @@ public abstract class TurtleProjRed extends TurtleDropCollector implements ITurt
     public TurtleCommandResult useTool(ITurtleAccess turtle, TurtleSide side, TurtleVerb verb, int direction) {
         if (!Config.enableRedPowerLikeTurtles)
             return TurtleCommandResult.failure("RedPower-like turtles have been disabled");
+        // Check the tool before building a FakeTurtlePlayer: it is the cheap failure and it keeps the whole method
+        // testable without a server world.
+        if (getItem() == null) return TurtleCommandResult.failure("This tool is not installed");
         FakeTurtlePlayer player = new FakeTurtlePlayer(turtle);
+        switch (verb) {
+            case Attack:
+            case Dig:
+                break;
+            default:
+                return TurtleCommandResult.failure("An unknown error has occurred, please tell the mod author");
+        }
         switch (verb) {
             case Attack:
                 if (getItem() == null) return TurtleCommandResult.failure("This tool is not installed");

@@ -1303,3 +1303,52 @@ players on `getCommandSenderName()`, and reports an unknown side as a Lua error 
 | `turtles/peripherals` remainder (XP, barrel, resupply, ridable, motion detector) | ~600 | the existing mocked-turtle harness |
 | `entities` (`EntityRidableTurtle`, `EntityNanoBotSwarm`) | ~190 | needs `Entity`/`World` scaffolding; `NanoProperties` is done |
 | `turtles` (ProjRed/BluePower families) | ~90 | the existing upgrade test |
+
+## 21. Appendix K — batch 9 (mass coverage: 28.5 % -> 33.1 %)
+
+**What was added.** 298 → **350** tests in 29 classes; line **28.5 % → 33.1 %**, branch **22.3 % → 25.2 %**; floor
+raised to 32 % / 24 %. In-game suite unchanged at 158.
+
+| New test class | Covers |
+|---|---|
+| `tiles/AIChatBoxTest` (14) | the session handle (id, remove, invalid-box guard), the event fan-out to attached computers, `ArgumentHelper` string/uuid parsing, the disabled and malformed-uuid paths |
+| `tiles/TileEntityMEBridgeTest` (9) | the seven AE interface accessors, the disabled guard, the client-side "no grid" state, the computer set, `writeToNBT` with no node |
+| `tiles/MountedTileEntityTest` (7) | the four mount bases' attach/detach round trip, detach-without-attach, per-computer bookkeeping |
+| `turtle upgrade families` (+3) | every ProjectRed and BluePower tool × material pair: id, adjective, type, and the no-installed-tool failure |
+| `turtles/peripherals/TurtlePeripheralsExtraTest` (19) | the XP turtle (balance, auto-collect toggle, empty-world collect, enchant validation, NBT persistence), the resupply turtle (side/coordinate linking guards, unlinked, disabled), the ridable turtle (all four methods) |
+
+**Per-package state now:**
+
+| Package | Missed | Coverage |
+|---|---:|---:|
+| `tiles` | 1175 | 31 % |
+| `turtles/peripherals` | 560 | 35 % |
+| `network` | 291 | 50 % |
+| `turtles` | 245 | 42 % |
+| `init` | 209 | 8 % |
+| `utils` | 195 | 39 % |
+| `blocks` | 188 | 26 % |
+| `entities` | 170 | 10 % |
+| `lua` | 169 | 59 % |
+| `event/handler` | 157 | 12 % |
+
+**Two production fixes fell out of this batch**, both found by trying to construct the object:
+
+1. `TurtleBluePower.getBluePowerTool` returned `new ItemStack(GameRegistry.findItem(...))` — a non-null stack whose
+   `getItem()` is null when the mod is absent. `TurtleProjRed` was fixed the same way in batch 5; BluePower had been
+   missed. `getItem() == null` guards now run *before* the `FakeTurtlePlayer` is built, so a turtle with no installed
+   tool fails cheaply instead of constructing a fake player first.
+2. `PeripheralTank`'s constructor called `fluidTank.readFromNBT(tag)` on a `getCompoundTag` result, which is never
+   null, so the null check was dead and every new turtle paid for a pointless NBT read.
+
+**Games-only, confirmed by probing:** `PeripheralTank` (FluidRegistry), `ContainerRecipe` (block registry),
+`init/Recipes` + `ModBlocks.init` (ore dictionary), `AEApi` (the ME bridge's `readFromNBT`), `FakePlayer`
+(`useTool`'s success path), `World.provider`/`World.rand` are final fields a mock cannot supply, and
+`peripheralsplusplus.turtles.peripherals.PeripheralRidable`/`Resupply`'s success paths need a dimension id.
+Those belong in `gameTestServer`; several already are.
+
+**What is left, honestly:** ~4,170 lines, of which roughly 1,400 are the `tiles` remainder (`TileEntityOreDictionary`,
+the Forestry analyzers, `TileEntityResupplyStation`'s success path, the rest of `callMethod` bodies), ~500 are the
+`init`/`blocks` recipe and registration tables (game test), ~290 are `network` handler bodies (they run on the netty
+thread and need a `MessageContext`), ~250 are `utils`/`entities`, and ~160 are the `event/handler` bodies. The
+remainder is `PeripheralsPlusPlus` itself (init wiring) and the excluded `client/**`.

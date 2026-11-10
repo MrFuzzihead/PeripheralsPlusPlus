@@ -40,9 +40,16 @@ public abstract class TurtleBluePower extends TurtleDropCollector implements ITu
         return getBluePowerTool(getToolType(), getToolMaterial());
     }
 
+    /**
+     * @param toolType     the tool kind
+     * @param toolMaterial the BluePower material
+     * @return the tool, or {@code null} when BluePower does not ship it
+     */
     public static ItemStack getBluePowerTool(ToolType toolType, ToolMaterial toolMaterial) {
         String name = toolMaterial.getName() + "_" + toolType.getName();
-        return new ItemStack(GameRegistry.findItem(ModIds.BluePower, name));
+        net.minecraft.item.Item item = GameRegistry.findItem(ModIds.BluePower, name);
+        // new ItemStack(null) produces a stack whose getItem() is null, which NPEs in getIcon/useTool.
+        return item == null ? null : new ItemStack(item);
     }
 
     @Override
@@ -75,7 +82,17 @@ public abstract class TurtleBluePower extends TurtleDropCollector implements ITu
     public TurtleCommandResult useTool(ITurtleAccess turtle, TurtleSide side, TurtleVerb verb, int direction) {
         if (!Config.enableRedPowerLikeTurtles)
             return TurtleCommandResult.failure("RedPower-like turtles have been disabled");
+        // Check the tool before building a FakeTurtlePlayer: it is the cheap failure and it keeps the whole method
+        // testable without a server world.
+        if (getItem() == null) return TurtleCommandResult.failure("This tool is not installed");
         FakeTurtlePlayer player = new FakeTurtlePlayer(turtle);
+        switch (verb) {
+            case Attack:
+            case Dig:
+                break;
+            default:
+                return TurtleCommandResult.failure("An unknown error has occurred, please tell the mod author");
+        }
         switch (verb) {
             case Attack:
                 List<Entity> entities = TurtleUtil.getEntitiesNearTurtle(turtle, player, direction);

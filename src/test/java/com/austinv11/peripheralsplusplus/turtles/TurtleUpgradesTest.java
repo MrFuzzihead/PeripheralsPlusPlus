@@ -140,13 +140,101 @@ public class TurtleUpgradesTest {
 
     private static ITurtleAccess turtle() {
         ITurtleAccess turtle = Mockito.mock(ITurtleAccess.class);
-        World world = Mockito.mock(World.class);
+        // useTool builds a FakeTurtlePlayer, which casts the world to WorldServer.
+        World world = Mockito.mock(net.minecraft.world.WorldServer.class);
         world.isRemote = true;
         Mockito.when(turtle.getWorld())
             .thenReturn(world);
         Mockito.when(turtle.getPosition())
             .thenReturn(new net.minecraft.util.ChunkCoordinates(0, 64, 0));
         return turtle;
+    }
+
+    @Test
+    public void theProjectRedFamilyCoversEveryToolAndMaterial() {
+        for (TurtleProjRed.ToolType type : TurtleProjRed.ToolType.values()) {
+            for (TurtleProjRed.ToolMaterial material : TurtleProjRed.ToolMaterial.values()) {
+                if (type == TurtleProjRed.ToolType.UNKNOWN || material == TurtleProjRed.ToolMaterial.UNKNOWN) continue;
+                TurtleProjRed upgrade = projRed(type, material);
+                Assert.assertEquals(Reference.BASE_PROJ_RED_UPGRADE, upgrade.getUpgradeID());
+                Assert.assertEquals(type.getAdj(), upgrade.getUnlocalisedAdjective());
+                Assert.assertEquals(dan200.computercraft.api.turtle.TurtleUpgradeType.Tool, upgrade.getType());
+                Assert.assertNull("a tool upgrade attaches no peripheral", upgrade.createPeripheral(null, null));
+            }
+        }
+    }
+
+    @Test
+    public void theBlueprintFamilyCoversEveryToolAndMaterial() {
+        for (TurtleBluePower.ToolType type : TurtleBluePower.ToolType.values()) {
+            for (TurtleBluePower.ToolMaterial material : TurtleBluePower.ToolMaterial.values()) {
+                if (type == TurtleBluePower.ToolType.UNKNOWN || material == TurtleBluePower.ToolMaterial.UNKNOWN)
+                    continue;
+                TurtleBluePower upgrade = bluePower(type, material);
+                Assert.assertEquals(Reference.BASE_BLUEPOWER_UPGRADE, upgrade.getUpgradeID());
+                Assert.assertNotNull(upgrade.getUnlocalisedAdjective());
+                Assert.assertNull("a tool upgrade attaches no peripheral", upgrade.createPeripheral(null, null));
+            }
+        }
+    }
+
+    @Test
+    public void aToolUpgradeWithNoInstalledItemReportsFailure() {
+        // ProjectRed/BluePower are not installed in the test environment, so the tool item cannot be resolved.
+        Config.enableRedPowerLikeTurtles = true;
+        ITurtleAccess turtle = turtle();
+        Assert.assertFalse(
+            projRed(TurtleProjRed.ToolType.PICKAXE, TurtleProjRed.ToolMaterial.RUBY)
+                .useTool(turtle, TurtleSide.Left, TurtleVerb.Dig, 2)
+                .isSuccess());
+        Assert.assertFalse(
+            bluePower(TurtleBluePower.ToolType.PICKAXE, TurtleBluePower.ToolMaterial.RUBY)
+                .useTool(turtle, TurtleSide.Left, TurtleVerb.Dig, 2)
+                .isSuccess());
+        Assert.assertFalse(
+            projRed(TurtleProjRed.ToolType.SWORD, TurtleProjRed.ToolMaterial.RUBY)
+                .useTool(turtle, TurtleSide.Left, TurtleVerb.Attack, 2)
+                .isSuccess());
+    }
+
+    private static TurtleProjRed projRed(TurtleProjRed.ToolType type, TurtleProjRed.ToolMaterial material) {
+        return new TurtleProjRed() {
+
+            @Override
+            public int getID() {
+                return 0;
+            }
+
+            @Override
+            public ToolType getToolType() {
+                return type;
+            }
+
+            @Override
+            public ToolMaterial getToolMaterial() {
+                return material;
+            }
+        };
+    }
+
+    private static TurtleBluePower bluePower(TurtleBluePower.ToolType type, TurtleBluePower.ToolMaterial material) {
+        return new TurtleBluePower() {
+
+            @Override
+            public int getID() {
+                return 0;
+            }
+
+            @Override
+            public ToolType getToolType() {
+                return type;
+            }
+
+            @Override
+            public ToolMaterial getToolMaterial() {
+                return material;
+            }
+        };
     }
 
     /** A concrete ProjectRed upgrade, since the real ones are anonymous subclasses. */
