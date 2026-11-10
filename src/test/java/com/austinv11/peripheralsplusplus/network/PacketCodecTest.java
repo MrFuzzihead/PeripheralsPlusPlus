@@ -225,4 +225,104 @@ public class PacketCodecTest {
         in.fromBytes(buf);
         Assert.assertEquals(0, in.commands.length);
     }
+
+    @Test
+    public void chatPacketRoundTrips() {
+        ChatPacket out = new ChatPacket("hello, world");
+        ByteBuf buf = Unpooled.buffer();
+        out.toBytes(buf);
+        ChatPacket in = new ChatPacket();
+        in.fromBytes(buf);
+        Assert.assertEquals("hello, world", in.text);
+    }
+
+    @Test
+    public void inputEventPacketRoundTrips() {
+        UUID uuid = UUID.randomUUID();
+        InputEventPacket out = new InputEventPacket(uuid, 42, true, "keyInput", "alice");
+        ByteBuf buf = Unpooled.buffer();
+        out.toBytes(buf);
+        InputEventPacket in = new InputEventPacket();
+        in.fromBytes(buf);
+        Assert.assertEquals(uuid, in.uuid);
+        Assert.assertEquals(42, in.key);
+        Assert.assertTrue(in.state);
+        Assert.assertEquals("keyInput", in.event);
+        Assert.assertEquals("alice", in.player);
+    }
+
+    @Test
+    public void textFieldInputEventPacketRoundTrips() {
+        UUID uuid = UUID.randomUUID();
+        TextFieldInputEventPacket out = new TextFieldInputEventPacket(uuid, "1", "typed", "textInput", "bob");
+        ByteBuf buf = Unpooled.buffer();
+        out.toBytes(buf);
+        TextFieldInputEventPacket in = new TextFieldInputEventPacket();
+        in.fromBytes(buf);
+        Assert.assertEquals(uuid, in.uuid);
+        Assert.assertEquals("1", in.key);
+        Assert.assertEquals("typed", in.text);
+        Assert.assertEquals("textInput", in.event);
+        Assert.assertEquals("bob", in.player);
+    }
+
+    @Test
+    public void scaleRequestPacketRoundTrips() {
+        net.minecraft.tileentity.TileEntity tile = org.mockito.Mockito.mock(net.minecraft.tileentity.TileEntity.class);
+        tile.xCoord = 1;
+        tile.yCoord = 2;
+        tile.zCoord = 3;
+        ScaleRequestPacket out = new ScaleRequestPacket(tile, 7, -1);
+        ByteBuf buf = Unpooled.buffer();
+        out.toBytes(buf);
+        ScaleRequestPacket in = new ScaleRequestPacket();
+        in.fromBytes(buf);
+        Assert.assertEquals(1, in.coords.posX);
+        Assert.assertEquals(3, in.coords.posZ);
+        Assert.assertEquals(7, in.id);
+        Assert.assertEquals(-1, in.dim);
+    }
+
+    @Test
+    public void scaleRequestResponsePacketRoundTrips() {
+        net.minecraft.util.ChunkCoordinates coords = new net.minecraft.util.ChunkCoordinates(4, 5, 6);
+        ScaleRequestResponsePacket out = new ScaleRequestResponsePacket(coords, 3, 320, 200, 0);
+        ByteBuf buf = Unpooled.buffer();
+        out.toBytes(buf);
+        ScaleRequestResponsePacket in = new ScaleRequestResponsePacket();
+        in.fromBytes(buf);
+        Assert.assertEquals(4, in.coords.posX);
+        Assert.assertEquals(3, in.id);
+        Assert.assertEquals(320, in.width);
+        Assert.assertEquals(200, in.height);
+    }
+
+    @Test
+    public void ridableTurtlePacketRoundTrips() {
+        RidableTurtlePacket out = new RidableTurtlePacket(9, RidableTurtlePacket.MovementCode.TURN_LEFT.code, 0);
+        ByteBuf buf = Unpooled.buffer();
+        out.toBytes(buf);
+        RidableTurtlePacket in = new RidableTurtlePacket();
+        in.fromBytes(buf);
+        Assert.assertEquals(9, in.getEntityId());
+        Assert.assertEquals(RidableTurtlePacket.MovementCode.TURN_LEFT.code, in.getMovementCode());
+        Assert.assertEquals(0, in.getDimension());
+    }
+
+    @Test
+    public void movementCodesAreStable() {
+        // These ordinals are the wire format and are also used to index MovementCode#values() on the server, so a
+        // reordered enum silently swaps the controls (batch 5 shipped A/D and S/X swapped exactly that way).
+        Assert.assertEquals(0, RidableTurtlePacket.MovementCode.FORWARD.code);
+        Assert.assertEquals(1, RidableTurtlePacket.MovementCode.TURN_LEFT.code);
+        Assert.assertEquals(2, RidableTurtlePacket.MovementCode.TURN_RIGHT.code);
+        Assert.assertEquals(3, RidableTurtlePacket.MovementCode.ASCEND.code);
+        Assert.assertEquals(4, RidableTurtlePacket.MovementCode.DESCEND.code);
+        for (RidableTurtlePacket.MovementCode code : RidableTurtlePacket.MovementCode.values()) {
+            Assert.assertEquals(
+                "code and ordinal must agree: EntityRidableTurtle indexes values() by code",
+                code.ordinal(),
+                code.code);
+        }
+    }
 }

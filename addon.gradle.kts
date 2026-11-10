@@ -83,7 +83,15 @@ tasks.withType<Test>().configureEach {
     }
 }
 
+// Tests need the compileOnly dependencies too: several production classes implement compileOnly supertypes
+// (cofh.api.energy, AE2, Forestry), so a test cannot even name the class without them on its classpath.
 val mainSourceSet = project.extensions.getByType(SourceSetContainer::class.java).getByName("main")
+configurations.named("testCompileClasspath") {
+    extendsFrom(configurations.named("compileOnly").get())
+}
+configurations.named("testRuntimeClasspath") {
+    extendsFrom(configurations.named("compileOnly").get())
+}
 
 fun jacocoClassDirs() = project.files(mainSourceSet.output.classesDirs).asFileTree.matching {
     // Generated version holder, rendering code, the accessor-only mixins and the vendored gtranslate library
@@ -126,17 +134,15 @@ tasks.named<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
             limit {
                 counter = "LINE"
                 value = "COVEREDRATIO"
-                // This is a regression guard at the current baseline, not a target. The mod ships 6223 measurable
-                // lines and the suite currently covers ~16.3% line / 14.9% branch. CODE_REVIEW.md section 10.4
-                // lists the ratchet: raise this in the same PR that adds each test class. What is left for the
-                // 65% target is the client side (GUI overlays), the forestry/AE peripherals and the remaining
-                // turtle upgrades, all of which need more game scaffolding than they are worth today.
-                minimum = BigDecimal("0.16")
+                // This is a regression guard at the current baseline, not a target. The mod ships 6226 measurable
+                // lines and the suite currently covers ~26.5% line / 19.2% branch. CODE_REVIEW.md section 19 has
+                // the per-package breakdown of what is left and why each block is out of reach headless.
+                minimum = BigDecimal("0.25")
             }
             limit {
                 counter = "BRANCH"
                 value = "COVEREDRATIO"
-                minimum = BigDecimal("0.14")
+                minimum = BigDecimal("0.18")
             }
         }
     }

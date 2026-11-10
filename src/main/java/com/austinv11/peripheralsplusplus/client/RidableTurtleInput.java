@@ -8,6 +8,8 @@ import net.minecraft.item.ItemStack;
 
 import org.lwjgl.input.Keyboard;
 
+import com.austinv11.peripheralsplusplus.network.RidableTurtlePacket;
+
 import cpw.mods.fml.relauncher.Side;
 import cpw.mods.fml.relauncher.SideOnly;
 
@@ -52,17 +54,25 @@ public final class RidableTurtleInput {
     }
 
     /**
+     * The movement the local player is asking for.
+     *
+     * <p>
+     * Returns the enum rather than its {@code code}: the extraction of this class from
+     * {@code EntityRidableTurtle} briefly hard-coded the ordinals and swapped A/D and S/X, which a codec test now
+     * pins off the enum itself.
+     * </p>
+     *
      * @param riddenBy the entity riding the turtle, or {@code null}
-     * @return the movement code the local player is requesting, or {@code -1} for none
+     * @return the requested movement, or {@code null} for none
      */
-    public static int requestedMovement(Entity riddenBy) {
+    public static RidableTurtlePacket.MovementCode requestedMovement(Entity riddenBy) {
         EntityPlayer player = localPlayer();
-        if (player == null || riddenBy != player) return -1;
-        if (Keyboard.isKeyDown(Keyboard.KEY_W)) return 0; // FORWARD
-        if (Keyboard.isKeyDown(Keyboard.KEY_D)) return 1; // TURN_RIGHT
-        if (Keyboard.isKeyDown(Keyboard.KEY_A)) return 2; // TURN_LEFT
-        if (Keyboard.isKeyDown(Keyboard.KEY_S)) return 3; // DESCEND
-        if (Keyboard.isKeyDown(Keyboard.KEY_X)) return 4; // ASCEND
-        return -1;
+        if (player == null || riddenBy != player) return null;
+        if (Keyboard.isKeyDown(Keyboard.KEY_W)) return RidableTurtlePacket.MovementCode.FORWARD;
+        if (Keyboard.isKeyDown(Keyboard.KEY_D)) return RidableTurtlePacket.MovementCode.TURN_RIGHT;
+        if (Keyboard.isKeyDown(Keyboard.KEY_A)) return RidableTurtlePacket.MovementCode.TURN_LEFT;
+        if (Keyboard.isKeyDown(Keyboard.KEY_S)) return RidableTurtlePacket.MovementCode.DESCEND;
+        if (Keyboard.isKeyDown(Keyboard.KEY_X)) return RidableTurtlePacket.MovementCode.ASCEND;
+        return null;
     }
 }

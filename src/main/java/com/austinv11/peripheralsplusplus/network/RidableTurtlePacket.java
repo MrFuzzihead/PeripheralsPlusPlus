@@ -25,6 +25,18 @@ public class RidableTurtlePacket implements IMessage {
         this.dimension = dimension;
     }
 
+    public int getEntityId() {
+        return entityId;
+    }
+
+    public int getMovementCode() {
+        return movementCode;
+    }
+
+    public int getDimension() {
+        return dimension;
+    }
+
     @Override
     public void fromBytes(ByteBuf byteBuf) {
         NBTTagCompound tag = ByteBufUtils.readTag(byteBuf);

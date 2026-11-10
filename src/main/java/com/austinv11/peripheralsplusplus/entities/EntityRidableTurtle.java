@@ -229,10 +229,10 @@ public class EntityRidableTurtle extends Entity {
         if (!this.worldObj.isRemote) return;
         // The whole client block lives in a @SideOnly class, so the dedicated server never links LWJGL or
         // net.minecraft.client (CODE_REVIEW.md section 5.32).
-        int movementCode = RidableTurtleInput.requestedMovement(this.riddenByEntity);
-        if (movementCode < 0) return;
+        RidableTurtlePacket.MovementCode movement = RidableTurtleInput.requestedMovement(this.riddenByEntity);
+        if (movement == null) return;
         PeripheralsPlusPlus.NETWORK
-            .sendToServer(new RidableTurtlePacket(this.getEntityId(), movementCode, this.dimension));
+            .sendToServer(new RidableTurtlePacket(this.getEntityId(), movement.code, this.dimension));
     }
 
     public void setTurtle(ITurtleAccess turtle) {

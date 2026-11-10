@@ -1205,4 +1205,59 @@ to 16 % / 14 %. The in-game suite is unchanged at 158 assertions and still passe
 |---|---|
 | `LuaObjectEntityControl` argument handling | its `numberOrString` logic is already correct after batch 2; converting it risks the click/key/mouse packing without buying a fix. The only remaining rough edge is the `MathUtils.isEvenNumber(method)` press/release mapping, which is documented |
 | `TileEntityMEBridge` argument parsing | three `instanceof Double` checks on an AE-specific path that the game test does not cover and that has no known defect |
-| the remaining 49 % of coverage | it is the client GUI/rendering (`client/**`, excluded from the report), the Forestry analyzers and the AE bridge (need those mods at test time), and the turtle upgrades (need a real turtle harness). Each needs more scaffolding than the defect density justifies; `gameTestServer` is the right tool and already covers the representative ones |
+| the remaining coverage | **this entry was wrong** — see §19. Measured, the uncovered lines were dominated by server-side `tiles`, `turtles/peripherals` and `network` code, not by client rendering. §19 has the corrected breakdown and the work that closed most of it |
+
+## 19. Appendix I — batch 7 (measured coverage, and the claim I got wrong)
+
+**Correction.** §18 claimed the remaining coverage was "the client GUI/rendering, the Forestry analyzers and the AE
+bridge". That was an assertion, not a measurement, and it was wrong: `client/**` is *excluded from the report
+entirely*, so it was never part of the denominator. Measured with JaCoCo's per-package counters, the uncovered lines
+before this batch were:
+
+| Package | Missed lines | Coverage | Reachable headless? |
+|---|---:|---:|---|
+| `tiles` | 1525 | 11 % | yes, for everything except the AE bridge and the ore-dictionary id lookups |
+| `turtles/peripherals` | 782 | 9 % | yes — a mocked `ITurtleAccess` is enough |
+| `network` | 415 | 28 % | yes — pure codecs |
+| `turtles` (upgrade classes) | 393 | 5 % | yes — metadata, plus the disabled paths |
+| `blocks` | 255 | 0 % | partly: `ModBlocks` loads headless, `createNewTileEntity` is assertable |
+| `init` | 226 | 0 % | **no**: `Recipes.init`/`ModBlocks.init` construct `ShapedOreRecipe`, whose constructor resolves ore-dictionary entries, and `OreDictionary`'s static initialiser needs FML |
+| `lua` | 249 | 40 % | yes |
+| `utils` | 202 | 36 % | partly: the registry-name helpers need FML |
+| `entities` | 188 | 0 % | **no**, not cheaply: `new Entity(world)` needs more world scaffolding than it is worth |
+| `peripheralsplusplus` (root) | 138 | 2 % | no: `preInit`/`init` drive the registries |
+
+So the real answer to "why is coverage low" is: **because the suite only covered the classes where bugs had been
+found**, not because the rest is untestable.
+
+**What this batch closed.**
+
+| New test class | Lines targeted |
+|---|---|
+| `turtles/peripherals/TurtlePeripheralTest` (24 tests) | feeder, garden, sign reader, dispenser, compass — every branch of five `callMethod`s over one mocked turtle |
+| `tiles/TileEntitiesTest` (25 tests) | environment scanner, RF charger (incl. the empty-neighbour guard and the NBT round trip), resupply station guards, peripheral container, note block, speaker, antenna |
+| `turtles/TurtleUpgradesTest` (8 tests) | all 18 upgrade ids against `Reference`, adjectives, types, the disabled-crafting paths, `TurtleProjRed`'s null-item handling |
+| `network/PacketCodecTest` (+6) | chat, input event, text field input, scale request/response, ridable turtle |
+
+**A real bug the codec work found.** `RidableTurtlePacket.MovementCode` is ordered
+`FORWARD, TURN_LEFT, TURN_RIGHT, ASCEND, DESCEND`, and `EntityRidableTurtle` indexes `values()` with the wire code.
+When batch 5 extracted the input handling into `client/RidableTurtleInput`, it hard-coded the ordinals and **swapped
+A/D and S/X** — pressing D turned the turtle left, and S made it ascend. Fixed by returning the enum member instead of
+an int, and `PacketCodecTest#movementCodesAreStable` now pins the ordinals and asserts `code == ordinal`.
+
+**Build fix.** `testCompileClasspath` now extends `compileOnly`. Several production classes implement compile-only
+supertypes (`cofh.api.energy.IEnergyReceiver`, AE2's interfaces), so a test could not even *name* the class without
+them.
+
+**Numbers.** 204 → **267** tests in 23 classes; line coverage 16.3 % → **26.5 %**, branch 14.9 % → **19.2 %**; floor
+raised to 25 % / 18 %. In-game suite unchanged at 158 assertions.
+
+**Next, in yield order**, for whoever continues:
+
+| Target | Missed lines | How |
+|---|---:|---|
+| `tiles` remainder (AIChatBox, PlayerInterface, Analyzers, ME bridge, MountedTileEntity attach/detach, the remaining `callMethod`s) | ~1330 | mocks, except the AE/Forestry ones |
+| `turtles/peripherals` remainder (tank, XP, barrel, resupply, ridable, XP enchant) | ~660 | the same mocked-turtle harness, extended with a fluid tank |
+| `init` + `blocks` | ~460 | move into `src/gameTest`: assert the recipe count per `Config` permutation, and that every block's `createNewTileEntity` returns the documented type |
+| `entities` | ~190 | needs `Entity`/`World` scaffolding; `NanoProperties` alone is cheap |
+| `lua` remainder (`LuaObjectPlayerInv`, `LuaObjectEntityControl`) | ~250 | mocks |
