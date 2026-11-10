@@ -41,11 +41,13 @@ jobs:
         run: ./gradlew runServer25 -PsmokeTest --stacktrace
 
       - name: Check the marker
+        # Grep every log: FML also writes fml-junk-earlystartup.log, which sorts before latest.log.
         run: |
-          LOG=$(ls run/server/logs/*.log 2>/dev/null | head -1 || true)
-          echo "log: $LOG"
-          grep -q "PERIPHERALSPLUSPLUS_SMOKE_TEST_OK" "$LOG"
-          grep -q "Done (" "$LOG"
+          ls -l run/server/logs/ || true
+          test -n "$(ls run/server/logs/*.log 2>/dev/null)" || { echo "no server log was written"; exit 1; }
+          grep -h "PERIPHERALSPLUSPLUS_SMOKE_TEST_OK" run/server/logs/*.log
+          grep -hq "PERIPHERALSPLUSPLUS_SMOKE_TEST_OK" run/server/logs/*.log
+          grep -hq "Done (" run/server/logs/*.log
 
       - name: Upload the log
         if: always()
@@ -80,13 +82,13 @@ jobs:
       - name: Check the marker
         # The mod prints PPP_GAMETEST_OK only after every assertion has passed and the server has to shut down
         # cleanly; a crash mid-run therefore fails here instead of silently passing.
+        # Grep every log: FML also writes fml-junk-earlystartup.log, which sorts before latest.log.
         run: |
-          LOG=$(ls run/server/logs/*.log 2>/dev/null | head -1 || true)
-          echo "log: $LOG"
-          test -n "$LOG" || { echo "no server log was written"; exit 1; }
-          grep -E "PPP-GAMETEST\] [0-9]+/[0-9]+ checks passed" "$LOG" || true
-          grep -q "PPP_GAMETEST_OK" "$LOG"
-          ! grep -q "PPP_GAMETEST_FAILED" "$LOG"
+          ls -l run/server/logs/ || true
+          test -n "$(ls run/server/logs/*.log 2>/dev/null)" || { echo "no server log was written"; exit 1; }
+          grep -hE "PPP-GAMETEST\] [0-9]+/[0-9]+ checks passed" run/server/logs/*.log || true
+          grep -hq "PPP_GAMETEST_OK" run/server/logs/*.log
+          ! grep -hq "PPP_GAMETEST_FAILED" run/server/logs/*.log
 
       - name: Upload the log
         if: always()
