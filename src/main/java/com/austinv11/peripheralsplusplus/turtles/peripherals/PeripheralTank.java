@@ -44,9 +44,8 @@ public class PeripheralTank extends MountedPeripheral {
         if (!turtle.getWorld().isRemote) {
             NBTTagCompound turtleTag = turtle.getUpgradeNBTData(side);
             NBTTagCompound tankData = turtleTag.getCompoundTag("TankData");
-            if (tankData != null) {
-                fluidTank.readFromNBT(tankData);
-            }
+            // getCompoundTag never returns null, so the old check always ran readFromNBT even for a brand new turtle.
+            if (tankData.hasKey("FluidName") || tankData.hasKey("Amount")) fluidTank.readFromNBT(tankData);
         }
 
     }

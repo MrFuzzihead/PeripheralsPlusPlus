@@ -1250,7 +1250,7 @@ supertypes (`cofh.api.energy.IEnergyReceiver`, AE2's interfaces), so a test coul
 them.
 
 **Numbers.** 204 → **267** tests in 23 classes; line coverage 16.3 % → **26.5 %**, branch 14.9 % → **19.2 %**; floor
-raised to 25 % / 18 %. In-game suite unchanged at 158 assertions.
+raised to 25 % / 18 %. In-game suite unchanged at 158 assertions. (Batch 8 took this further — see §20.)
 
 **Next, in yield order**, for whoever continues:
 
@@ -1261,3 +1261,45 @@ raised to 25 % / 18 %. In-game suite unchanged at 158 assertions.
 | `init` + `blocks` | ~460 | move into `src/gameTest`: assert the recipe count per `Config` permutation, and that every block's `createNewTileEntity` returns the documented type |
 | `entities` | ~190 | needs `Entity`/`World` scaffolding; `NanoProperties` alone is cheap |
 | `lua` remainder (`LuaObjectPlayerInv`, `LuaObjectEntityControl`) | ~250 | mocks |
+
+## 20. Appendix J — batch 8 (continuing the coverage climb)
+
+**What was added.** 267 → **298** tests in 25 classes; line **26.5 % → 28.5 %**, branch **19.2 % → 22.3 %**; floor
+raised to 27 % / 21 %. In-game suite unchanged at 158.
+
+| New test class | Covers |
+|---|---|
+| `lua/LuaObjectEntityControlTest` (12) | the nano-bot handle: per-kind method tables, the "cannot be interacted with" branches, `setTarget`/`whisper` validation, and `NanoProperties`' NBT round trip incl. garbage input |
+| `lua/LuaObjectPlayerInvTest` (10) | the permission matrix (no card, card without a tag, per-flag), the reads, side validation |
+| `tiles/PlayerInterfaceTest` (7) | side setters via `LuaArgs.direction`, unset sides, the "no server" guard |
+| `network/PacketCodecTest` (+6) | the five remaining packets |
+
+**Three more classes turned out to be game-only**, which is why they are *not* in the list above. Each was probed
+first rather than assumed:
+
+| Class | Blocker |
+|---|---|
+| `PeripheralTank` (219 lines, the largest uncovered class) | `FluidRegistry`'s static initialiser factories the vanilla fluids and needs FML, and every `FluidStack`/`FluidTank` touch trips it |
+| `ContainerRecipe` (69) | its `matches` needs `new ItemStack(ModBlocks.chatBox).getItem()` to be an `ItemBlock`, i.e. the block registry, so every block stack in a test has a null item |
+| `init/Recipes` + `ModBlocks.init` (209) | `ShapedOreRecipe`'s constructor resolves ore-dictionary entries |
+
+All three are already covered by `gameTestServer` (the container recipe and the ore dictionary explicitly), so the
+right move for `PeripheralTank` and the recipe table is to extend the in-game suite rather than fight the registries.
+
+**One real improvement fell out of the probing.** `PeripheralTank`'s constructor called
+`fluidTank.readFromNBT(tankData)` on a tag from `getCompoundTag`, which never returns null — so the old null check was
+dead and every brand-new turtle paid for a pointless NBT read. It now checks for the fluid keys instead.
+
+**Two more hardened along the way:** `TileEntityPlayerInterface` now null-guards `MinecraftServer.getServer()`, matches
+players on `getCommandSenderName()`, and reports an unknown side as a Lua error instead of an
+`IllegalArgumentException`; `LuaObjectPlayerInv` / `TileEntityPlayerInterface` are on `LuaArgs`.
+
+**Next, in yield order:**
+
+| Target | Missed | How |
+|---|---:|---|
+| `tiles` remainder (`AIChatBox`, analyzers, ME bridge, `MountedTileEntity` attach/detach) | ~1200 | mocks, except AE/Forestry |
+| `PeripheralTank`, `ContainerRecipe`, `Recipes`, `ModBlocks.init` | ~500 | **gameTest**: recipe counts per `Config` permutation, tank fill/drain against a real fluid handler |
+| `turtles/peripherals` remainder (XP, barrel, resupply, ridable, motion detector) | ~600 | the existing mocked-turtle harness |
+| `entities` (`EntityRidableTurtle`, `EntityNanoBotSwarm`) | ~190 | needs `Entity`/`World` scaffolding; `NanoProperties` is done |
+| `turtles` (ProjRed/BluePower families) | ~90 | the existing upgrade test |

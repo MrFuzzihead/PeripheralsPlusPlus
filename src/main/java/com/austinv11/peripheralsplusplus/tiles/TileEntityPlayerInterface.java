@@ -9,6 +9,7 @@ import net.minecraft.server.MinecraftServer;
 import net.minecraftforge.common.util.ForgeDirection;
 
 import com.austinv11.collectiveframework.minecraft.utils.NBTHelper;
+import com.austinv11.peripheralsplusplus.lua.LuaArgs;
 import com.austinv11.peripheralsplusplus.lua.LuaObjectPlayerInv;
 import com.austinv11.peripheralsplusplus.reference.Config;
 
@@ -34,46 +35,37 @@ public class TileEntityPlayerInterface extends MountedTileEntityInventory {
     }
 
     @Override
-    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] arguments)
+    public Object[] callMethod(IComputerAccess computer, ILuaContext context, int method, Object[] rawArguments)
         throws LuaException, InterruptedException {
         if (Config.enablePlayerInterface) {
             if (method == 0) {
-                if (arguments.length != 1) {
-                    throw new LuaException("Wrong number of arguments. 1 expected.");
-                }
-                if (!(arguments[0] instanceof String)) {
-                    throw new LuaException("Bad argument #1 (expected string)");
-                }
+                LuaArgs arguments = LuaArgs.of(rawArguments);
+                String name = arguments.string(0);
+                MinecraftServer server = MinecraftServer.getServer();
+                if (server == null) throw new LuaException("No server is running");
                 // Check that the specified player exists
-                for (EntityPlayer player : (Iterable<? extends EntityPlayer>) MinecraftServer.getServer()
+                for (EntityPlayer player : (Iterable<? extends EntityPlayer>) server
                     .getConfigurationManager().playerEntityList) {
-                    if (player.getDisplayName()
-                        .equals(arguments[0])) {
+                    if (player.getCommandSenderName()
+                        .equals(name)) {
                         // Check that the specified player has given permission for some sort of editing by putting
                         // their permissions card in the player interface
                         if (hasPermissionsCardFor(player) || !Config.enableInterfacePermissions) {
                             return new Object[] { new LuaObjectPlayerInv(player, this, getPermCardFor(player)) };
                         } else {
-                            throw new LuaException("Missing permissions for player " + arguments[0]);
+                            throw new LuaException("Missing permissions for player " + name);
                         }
                     }
                 }
             } else if (method == 1 || method == 2) {
-                if (arguments.length != 1) {
-                    throw new LuaException("Wrong number of arguments. 1 expected.");
-                }
-                if (!(arguments[0] instanceof String)) {
-                    throw new LuaException("Bad argument #1 (expected string)");
-                }
-                if (method == 1) {
-                    outputSide = ForgeDirection.valueOf(((String) arguments[0]).toUpperCase());
-                } else {
-                    inputSide = ForgeDirection.valueOf(((String) arguments[0]).toUpperCase());
-                }
+                LuaArgs arguments = LuaArgs.of(rawArguments);
+                ForgeDirection side = arguments.direction(0);
+                if (method == 1) outputSide = side;
+                else inputSide = side;
             } else if (method == 3) {
-                return new Object[] { outputSide.toString() };
+                return new Object[] { outputSide == null ? null : outputSide.name() };
             } else if (method == 4) {
-                return new Object[] { inputSide.toString() };
+                return new Object[] { inputSide == null ? null : inputSide.name() };
             }
         } else {
             throw new LuaException("Player Interfaces have been disabled");
