@@ -37,6 +37,9 @@ public class TileEntitiesTest {
         // TileEntity#writeToNBT writes the registry id, which needs a mapping; the game supplies it in
         // CommonProxy#registerTileEntities.
         net.minecraft.tileentity.TileEntity.addMapping(TileEntityRFCharger.class, "pppRfChargerTest");
+        net.minecraft.tileentity.TileEntity.addMapping(TileEntityPeripheralContainer.class, "pppContainerTest");
+        net.minecraft.tileentity.TileEntity.addMapping(TileEntitySpeaker.class, "pppSpeakerTest");
+        net.minecraft.tileentity.TileEntity.addMapping(TileEntityChatBox.class, "pppChatBoxTest");
     }
 
     @After
@@ -364,6 +367,37 @@ public class TileEntitiesTest {
     public void theAntennaExposesSixMethods() {
         Assert.assertEquals(6, new TileEntityAntenna().getMethodNames().length);
         Assert.assertEquals("antenna", new TileEntityAntenna().getType());
+    }
+
+    @Test
+    public void theContainerRunsWithoutContents() {
+        World world = Mockito.mock(World.class);
+        world.isRemote = false;
+        TileEntityPeripheralContainer container = new TileEntityPeripheralContainer();
+        container.setWorldObj(world);
+        container.updateEntity();
+        Assert.assertTrue(
+            container.getBlocksContained()
+                .isEmpty());
+    }
+
+    @Test
+    public void theContainerSurvivesAnNbtRoundTrip() {
+        TileEntityPeripheralContainer container = new TileEntityPeripheralContainer();
+        container.addPeripheral(com.austinv11.peripheralsplusplus.init.ModBlocks.chatBox);
+
+        NBTTagCompound tag = new NBTTagCompound();
+        container.writeToNBT(tag);
+        Assert.assertTrue(tag.hasKey("ids"));
+
+        // The ids of unregistered blocks do not resolve in a unit test, so loading yields an empty container
+        // rather than the null-peripheral NPE the batch-2 fix removed (CODE_REVIEW.md section 4.9).
+        TileEntityPeripheralContainer loaded = new TileEntityPeripheralContainer();
+        loaded.readFromNBT(tag);
+        Assert.assertTrue(
+            "an unresolvable id must be skipped, not stored",
+            loaded.getBlocksContained()
+                .isEmpty());
     }
 
     // ---------------------------------------------------------------------------------------------------------

@@ -257,11 +257,16 @@ public class TileEntityInteractiveSorter extends MountedTileEntityInventory {
                 NBTTagString tagString = (NBTTagString) nbtBase;
                 return tagString.func_150285_a_();
 
-            case 9:
+            case 9: {
                 NBTTagList tagList = (NBTTagList) nbtBase;
-                Object[] tags = new Object[tagList.tagCount()];
-                for (int i = 0; i < tagList.tagCount(); i++) tags[i] = getObjectForNBT(tagList.removeTag(i));
+                int count = tagList.tagCount();
+                Object[] tags = new Object[count];
+                // removeTag shrinks the list, so removing index i each time skipped every other entry and left the
+                // tail null. The list is already a private copy, so draining it from the front is safe and keeps
+                // the order (CODE_REVIEW.md section 8.4).
+                for (int i = 0; i < count; i++) tags[i] = getObjectForNBT(tagList.removeTag(0));
                 return Util.arrayToMap(tags);
+            }
 
             case 10:
                 NBTTagCompound tagCompound = (NBTTagCompound) nbtBase;

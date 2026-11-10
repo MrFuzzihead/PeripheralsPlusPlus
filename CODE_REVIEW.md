@@ -1399,3 +1399,54 @@ the manifests are unchanged.
 
 **Numbers.** 350 → **357** tests; line 33.1 % → **33.4 %** (the Lua files are resources, so they are not in the Java
 denominator — this batch is worth more than the number suggests). In-game suite unchanged at 158.
+
+## 23. Appendix M — batch 11 (categories A and B, and the measured ceiling)
+
+**Coverage.** 357 → **384** tests in 31 classes; line **33.4 % → 36.9 %**, branch **25.3 % → 29.1 %**; floor raised to
+36 % / 28 %. In-game suite unchanged at 158.
+
+**Category A (cheap, probe-confirmed).**
+
+| Target | Result |
+|---|---|
+| `LuaObjectEntityControl` | 123 → **47** missed. Registering an antenna and putting the entity in its `associatedEntities` makes `ItemNanoSwarm.doInstruction` return true, so every "the instruction ran" branch is reachable. Covers hurt/heal/readings/profile/robot-input/whisper success paths and the bot-consumption accounting |
+| `TileEntityInteractiveSorter` | `analyze` and the whole NBT-to-Lua-table conversion, for every NBT tag type |
+| `TileEntityPeripheralContainer` | `updateEntity`, the NBT round trip and the "unresolvable block id is skipped" guard |
+| `CommonProxy` | asserts *which* tile entities are registered per optional mod, including the BuildCraft-only RF charger case (§5.37) |
+| `PeripheralsPlusPlus` | `registerUpgrade`, plus both RedPower-like families via reflection on the private method — 30 upgrades, ids checked for collision |
+| `TurtleUtil` | `harvestBlock` (three branches) and `addToInv`'s merge path |
+
+**Category B (moderate).** The teleporter's `blockActivated`, the motion detector, the speaker's tick, the note block's
+"with a world" path and the XP turtle's `add`/`enchant` all turned out to be blocked by the same three things, which are
+now recorded as facts rather than guesses:
+
+| Blocker | Blocks |
+|---|---|
+| `World.provider` is **final**, so a mock's `provider` is null | anything that builds an `EntityItem`/`Entity`, sends a `TargetPoint`, or reads `dimensionId` — including the teleporter link wand, the note block's particle packet, the speaker's tick and `PeripheralResupply`'s success path |
+| `OreDictionary` and `FluidRegistry` cannot initialise headless | `Util.getEntries`/`compare`, `PeripheralTank`, `Recipes`, `ModBlocks.init` |
+| `MinecraftForge.EVENT_BUS.register` needs FML's class loader | `PeripheralMotionDetector.attach`, the drop-collector listener, `registerEvents` |
+
+**Three more real bugs found while writing these tests.**
+
+1. **`LuaObjectEntityControl.click("left")` threw a `ClassCastException`.** The validation accepted *either* a number
+   or a string for every input method and then cast unconditionally, so `click("left")` reached
+   `(Double) arguments[0]`. Now each method validates its own type through `LuaArgs`; `click`/`clickRelease` require a
+   number, `keyPress`/`keyRelease` a string and `mouseMove` two numbers.
+2. **The sorter's NBT list conversion dropped entries.** `getObjectForNBT` called `NBTTagList#removeTag(i)` for `i` in
+   `0..count`, which shrinks the list under the loop: a five-element list became `entry0, entry2, entry4, null, null`.
+   Documented in §8.4 but never fixed; it drains from index 0 now and keeps the order.
+3. **`TurtleBluePower.getBluePowerTool`** returned a null-item stack when BluePower was absent (the sibling of the
+   `TurtleProjRed` fix in batch 5, which I had missed).
+
+**Measured ceiling.** Per-class JaCoCo data, grouped by reachability:
+
+| Category | Missed lines | Verdict |
+|---|---:|---|
+| A + B leftovers (small classes, NBT paths, metadata) | ~1,600 | drivable, slowly |
+| Entities (`EntityRidableTurtle`, `EntityNanoBotSwarm`) | 170 | needs `Field.setAccessible` on `World.provider`, or `gameTest` |
+| Game-only (`PeripheralTank` 218, `Recipes` 155, ME bridge 153, ore dictionary 127, container recipe 69) | 758 | only counts if JaCoCo runs in-game |
+| Not worth it (`TradeHandler` trade tables, pocket crafting, `PeripheralsPlusPlus` init) | 269 | static data / FML lifecycle |
+
+**~50 % is the honest headless ceiling** (from 36.9 %): about two more batches of this size. Beyond that the only way
+up is attaching JaCoCo to `gameTestServer` (up to ~60 % *and* a real number for the world-facing code), or a
+final-field reflection hack for entities. Recorded here so nobody re-litigates it.

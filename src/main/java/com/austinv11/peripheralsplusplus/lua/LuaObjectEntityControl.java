@@ -58,9 +58,9 @@ public class LuaObjectEntityControl implements ILuaObject {
      * @param entity    the controlled entity, used for its world
      * @return the closest entity within {@link #MAX_TARGET_RANGE}, or {@code null}
      */
-    private static Entity nearestEntity(Object[] arguments, Entity entity) {
+    private static Entity nearestEntity(LuaArgs arguments, Entity entity) throws LuaException {
         return WorldUtils.getNearestEntityToLocation(
-            new Location((Double) arguments[0], (Double) arguments[1], (Double) arguments[2], entity.worldObj),
+            new Location(arguments.number(0), arguments.number(1), arguments.number(2), entity.worldObj),
             MAX_TARGET_RANGE);
     }
 
@@ -75,8 +75,9 @@ public class LuaObjectEntityControl implements ILuaObject {
     }
 
     @Override
-    public Object[] callMethod(ILuaContext context, int method, Object[] arguments)
+    public Object[] callMethod(ILuaContext context, int method, Object[] rawArguments)
         throws LuaException, InterruptedException {
+        LuaArgs arguments = LuaArgs.of(rawArguments);
         if (method < 8) {
             switch (method) {
                 case 0:
@@ -187,41 +188,41 @@ public class LuaObjectEntityControl implements ILuaObject {
                     case 13:
                     case 14:
                     case 15:
-                        if (arguments.length < 1 || (method == 15 && arguments.length < 2))
-                            throw new LuaException("Too few arguments");
-                        if (!(arguments[0] instanceof Double && method < 13)
-                            && !(arguments[0] instanceof String && method < 15)
-                            && !(arguments[0] instanceof Double && method == 15))
-                            throw new LuaException("Bad argument #1 (expected string or number)");
-                        if (arguments.length > 1 && !(arguments[1] instanceof Double))
-                            throw new LuaException("Bad argument #2 (expected number)");
+                        // click/clickRelease take a button number, keyPress/keyRelease a key name and mouseMove two
+                        // numbers. The old validation accepted either type for every method and then cast
+                        // unconditionally, so click("left") threw a ClassCastException instead of a Lua error.
+                        arguments.atLeast(method == 15 ? 2 : 1);
+
+                        Object args;
+                        RobotEventPacket.ActionType action;
+                        if (method == 15) {
+                            args = new int[] { arguments.integer(0), arguments.integer(1) };
+                            action = RobotEventPacket.ActionType.MOUSE_MOVE;
+                        } else if (method < 13) {
+                            args = (Integer) arguments.integer(0);
+                            action = RobotEventPacket.ActionType.MOUSE_CLICK;
+                        } else {
+                            args = arguments.string(0);
+                            action = RobotEventPacket.ActionType.KEYBOARD;
+                        }
                         if (!ItemNanoSwarm.doInstruction(id, player))
                             throw new LuaException("Entity with id " + id + " cannot be interacted with");
                         RobotEventPacket.PressType type = MathUtils.isEvenNumber(method)
                             ? RobotEventPacket.PressType.RELEASE
                             : RobotEventPacket.PressType.PRESS;
-                        RobotEventPacket.ActionType action = method < 13 ? RobotEventPacket.ActionType.MOUSE_CLICK
-                            : method < 15 ? RobotEventPacket.ActionType.KEYBOARD
-                                : RobotEventPacket.ActionType.MOUSE_MOVE;
-                        Object args = arguments.length == 1 && arguments[0] instanceof Double
-                            ? (Integer) (int) (double) (Double) arguments[0]
-                            : arguments[0] instanceof String ? (String) arguments[0]
-                                : new int[] { (int) (double) (Double) arguments[0],
-                                    (int) (double) (Double) arguments[1] };
                         PeripheralsPlusPlus.NETWORK
                             .sendTo(new RobotEventPacket(action, type, args), (EntityPlayerMP) player);
                         break;
 
-                    case 16:
-                        if (arguments.length < 1) throw new LuaException("Too few arguments");
-                        if (!(arguments[0] instanceof String))
-                            throw new LuaException("Bad argument #1 (expected string)");
-                        if (arguments.length > 1 && !(arguments[1] instanceof String))
-                            throw new LuaException("Bad argument #2 (expected string)");
+                    case 16: {
+                        String message = arguments.atLeast(1)
+                            .string(0);
+                        String from = arguments.string(1, null);
                         if (!ItemNanoSwarm.doInstruction(id, player)) return new Object[] { false };
-                        String sender = arguments.length > 1 ? "<" + arguments[1] + "> " : "";
-                        player.addChatComponentMessage(new ChatComponentText(sender + arguments[0]));
+                        String sender = from == null ? "" : "<" + from + "> ";
+                        player.addChatComponentMessage(new ChatComponentText(sender + message));
                         break;
+                    }
                 }
 
             } else {
@@ -233,68 +234,52 @@ public class LuaObjectEntityControl implements ILuaObject {
                             .getSimpleName() };
 
                     case 9:
-                        if (arguments.length < 1) throw new LuaException("Too few arguments");
-                        if (!(arguments[0] instanceof String || arguments[0] instanceof Double))
-                            throw new LuaException("Bad argument #1 (expected string or number)");
-                        if (arguments[0] instanceof Double && !(arguments.length > 1 && arguments[1] instanceof Double))
-                            throw new LuaException("Bad argument #2 (expected number)");
-                        if (arguments[0] instanceof Double && !(arguments.length > 2 && arguments[2] instanceof Double))
-                            throw new LuaException("Bad argument #3 (expected number)");
+                    case 10: {
+                        // setTarget / setAttackTarget: a player name, or x y z coordinates.
+                        Object selector = arguments.atLeast(1)
+                            .numberOrString(0);
+                        // Validate the coordinates before acting, so a bad call cannot half-apply.
+                        if (selector instanceof Double) {
+                            arguments.number(1);
+                            arguments.number(2);
+                        }
                         if (!ItemNanoSwarm.doInstruction(id, entity))
                             throw new LuaException("Entity with id " + id + " cannot be interacted with");
-                        Entity target;
-                        if (arguments[0] instanceof String)
-                            target = WorldUtils.getPlayerForWorld((String) arguments[0], entity.worldObj);
-                        else target = nearestEntity(arguments, entity);
-                        ((EntityLivingAccessor) entity).ppp$setCurrentTarget(target);
-                        return new Object[] { target != null };
-
-                    case 10:
-                        if (arguments.length < 1) throw new LuaException("Too few arguments");
-                        if (!(arguments[0] instanceof String || arguments[0] instanceof Double))
-                            throw new LuaException("Bad argument #1 (expected string or number)");
-                        if (arguments[0] instanceof Double && !(arguments.length > 1 && arguments[1] instanceof Double))
-                            throw new LuaException("Bad argument #2 (expected number)");
-                        if (arguments[0] instanceof Double && !(arguments.length > 2 && arguments[2] instanceof Double))
-                            throw new LuaException("Bad argument #3 (expected number)");
-                        if (!ItemNanoSwarm.doInstruction(id, entity))
-                            throw new LuaException("Entity with id " + id + " cannot be interacted with");
-                        Entity attackTarget;
-                        if (arguments[0] instanceof String)
-                            attackTarget = WorldUtils.getPlayerForWorld((String) arguments[0], entity.worldObj);
-                        else attackTarget = nearestEntity(arguments, entity);
-                        if (!(attackTarget instanceof EntityLivingBase)) {
+                        Entity target = selector instanceof String
+                            ? WorldUtils.getPlayerForWorld((String) selector, entity.worldObj)
+                            : nearestEntity(arguments, entity);
+                        if (method == 9) {
+                            ((EntityLivingAccessor) entity).ppp$setCurrentTarget(target);
+                            return new Object[] { target != null };
+                        }
+                        if (!(target instanceof EntityLivingBase)) {
                             // Boats, minecarts and items can be "nearest"; they cannot be attacked (section 4.7).
                             entity.setAttackTarget(null);
                             return new Object[] { false };
                         }
-                        entity.setAttackTarget((EntityLivingBase) attackTarget);
+                        entity.setAttackTarget((EntityLivingBase) target);
                         return new Object[] { true };
+                    }
 
-                    case 11:
-                        if (arguments.length < 3) throw new LuaException("Too few arguments");
-                        if (!(arguments[0] instanceof Double))
-                            throw new LuaException("Bad argument #1 (expected number)");
-                        if (!(arguments[1] instanceof Double))
-                            throw new LuaException("Bad argument #2 (expected number)");
-                        if (!(arguments[2] instanceof Double))
-                            throw new LuaException("Bad argument #3 (expected number)");
+                    case 11: {
+                        arguments.atLeast(3);
                         if (!ItemNanoSwarm.doInstruction(id, entity)) return new Object[] { false };
                         PathNavigate navigator = ((EntityLivingAccessor) entity).ppp$getNavigator();
                         PathEntity path = navigator
-                            .getPathToXYZ((Double) arguments[0], (Double) arguments[1], (Double) arguments[2]);
+                            .getPathToXYZ(arguments.number(0), arguments.number(1), arguments.number(2));
                         if (path == null) return new Object[] { false };
                         navigator.setPath(path, entity.getAIMoveSpeed());
                         break;
+                    }
 
-                    case 12:
-                        if (arguments.length < 1) throw new LuaException("Too few arguments");
-                        if (!(arguments[0] instanceof Double))
-                            throw new LuaException("Bad argument #1 (expected number)");
+                    case 12: {
+                        float yaw = (float) arguments.atLeast(1)
+                            .number(0);
                         if (!ItemNanoSwarm.doInstruction(id, entity)) return new Object[] { false };
-                        entity.rotationYaw = (float) (double) (Double) arguments[0];
-                        entity.rotationYawHead = (float) (double) (Double) arguments[0];
+                        entity.rotationYaw = yaw;
+                        entity.rotationYawHead = yaw;
                         break;
+                    }
 
                     case 13:
                         if (!ItemNanoSwarm.doInstruction(id, entity)) return new Object[] { false };
