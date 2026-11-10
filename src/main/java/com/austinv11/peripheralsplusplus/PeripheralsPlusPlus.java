@@ -80,7 +80,7 @@ import dan200.computercraft.api.turtle.ITurtleUpgrade;
     modid = Reference.MOD_ID,
     name = Reference.MOD_NAME,
     version = Reference.VERSION/* , guiFactory = Reference.GUI_FACTORY_CLASS */,
-    dependencies = "required-after:ComputerCraft@[3.3.0,);required-after:collectiveframework@[1.0.0,)")
+    dependencies = "required-after:ComputerCraft@[3.3.0,);required-after:collectiveframework@[1.0.1,)")
 public class PeripheralsPlusPlus {
 
     public static int VILLAGER_ID = 1337; // :P
