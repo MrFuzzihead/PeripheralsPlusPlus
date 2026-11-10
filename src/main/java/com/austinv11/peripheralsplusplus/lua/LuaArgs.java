@@ -44,11 +44,19 @@ public final class LuaArgs {
     }
 
     /**
+     * Whether an argument is present at an index.
+     *
+     * <p>
+     * A {@code null} element counts as absent: Lua has no {@code null}, only {@code nil}, and a {@code nil} argument
+     * is not passed to Java at all. Treating an explicit null the same way keeps Java callers and the Lua bridge in
+     * agreement.
+     * </p>
+     *
      * @param index zero-based argument index
      * @return true when an argument exists at that index
      */
     public boolean has(int index) {
-        return index >= 0 && index < arguments.length;
+        return index >= 0 && index < arguments.length && arguments[index] != null;
     }
 
     private LuaException badArgument(int index, String expected, String got) {

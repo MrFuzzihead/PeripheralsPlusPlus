@@ -38,6 +38,16 @@ public class LuaArgsTest {
     }
 
     @Test
+    public void aNullElementCountsAsAbsent() throws LuaException {
+        // Lua has no null, only nil, so a nil argument never reaches Java; an explicit null behaves the same way.
+        LuaArgs reader = LuaArgs.of(args("a", null));
+        Assert.assertTrue(reader.has(0));
+        Assert.assertFalse(reader.has(1));
+        Assert.assertEquals("fallback", reader.string(1, "fallback"));
+        Assert.assertEquals(7, reader.integer(1, 7));
+    }
+
+    @Test
     public void atLeastReportsTheExpectedCount() throws LuaException {
         Assert.assertSame(
             LuaArgs.of(args(1.0d))

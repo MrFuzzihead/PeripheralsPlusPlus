@@ -400,6 +400,82 @@ public class TileEntitiesTest {
                 .isEmpty());
     }
 
+    @Test
+    public void theSensorListsEveryOnlinePlayer() throws Exception {
+        // No server in a unit test, so Util.getPlayers(null) is empty rather than an NPE (section 5.5).
+        TileEntityPlayerSensor sensor = new TileEntityPlayerSensor();
+        Object[] result = sensor.callMethod(null, null, 1, new Object[0]);
+        Assert.assertEquals(1, result.length);
+        Assert.assertTrue(((java.util.Map<?, ?>) result[0]).isEmpty());
+    }
+
+    @Test
+    public void theSensorRejectsANonBooleanWorldFlag() {
+        TileEntityPlayerSensor sensor = new TileEntityPlayerSensor();
+        assertLuaError(() -> sensor.callMethod(null, null, 1, new Object[] { "yes" }), "boolean");
+    }
+
+    @Test
+    public void theSpeakerReportsACompletionToItsComputers() throws Exception {
+        TileEntitySpeaker speaker = new TileEntitySpeaker();
+        dan200.computercraft.api.peripheral.IComputerAccess computer = Mockito
+            .mock(dan200.computercraft.api.peripheral.IComputerAccess.class);
+        Mockito.when(computer.getID())
+            .thenReturn(1);
+        com.austinv11.peripheralsplusplus.PeripheralsPlusPlus.NETWORK = Mockito
+            .mock(cpw.mods.fml.common.network.simpleimpl.SimpleNetworkWrapper.class);
+        try {
+            speaker.attach(computer);
+            speaker.callMethod(computer, null, 0, new Object[] { "hello", 8.0d, null, false });
+            speaker.onSpeechCompletion("hello", "en");
+            Mockito.verify(computer)
+                .queueEvent(Mockito.eq("speechComplete"), Mockito.any(Object[].class));
+        } finally {
+            com.austinv11.peripheralsplusplus.PeripheralsPlusPlus.NETWORK = null;
+        }
+    }
+
+    @Test
+    public void theSpeakerIgnoresACompletionForAnotherMessage() throws Exception {
+        TileEntitySpeaker speaker = new TileEntitySpeaker();
+        dan200.computercraft.api.peripheral.IComputerAccess computer = Mockito
+            .mock(dan200.computercraft.api.peripheral.IComputerAccess.class);
+        Mockito.when(computer.getID())
+            .thenReturn(1);
+        com.austinv11.peripheralsplusplus.PeripheralsPlusPlus.NETWORK = Mockito
+            .mock(cpw.mods.fml.common.network.simpleimpl.SimpleNetworkWrapper.class);
+        try {
+            speaker.attach(computer);
+            speaker.callMethod(computer, null, 0, new Object[] { "mine", 8.0d, null, false });
+            speaker.onSpeechCompletion("someone else's", "en");
+            Mockito.verify(computer, Mockito.never())
+                .queueEvent(Mockito.eq("speechComplete"), Mockito.any(Object[].class));
+        } finally {
+            com.austinv11.peripheralsplusplus.PeripheralsPlusPlus.NETWORK = null;
+        }
+    }
+
+    @Test
+    public void theAntennaReportsNoHudForAnOfflinePlayer() throws Exception {
+        com.austinv11.peripheralsplusplus.PeripheralsPlusPlus.NETWORK = Mockito
+            .mock(cpw.mods.fml.common.network.simpleimpl.SimpleNetworkWrapper.class);
+        try {
+            TileEntityAntenna antenna = new TileEntityAntenna();
+            // Util.getPlayer returns null without a server, so the antenna answers nil instead of NPE-ing.
+            Assert
+                .assertArrayEquals(new Object[] { null }, antenna.callMethod(null, null, 1, new Object[] { "alice" }));
+            assertLuaError(() -> antenna.callMethod(null, null, 1, new Object[0]), "Bad argument #1");
+        } finally {
+            com.austinv11.peripheralsplusplus.PeripheralsPlusPlus.NETWORK = null;
+        }
+    }
+
+    @Test
+    public void theResupplyStationNamesItself() {
+        // StatCollector falls back to the key in a unit test, which is enough to prove the lookup happens.
+        Assert.assertNotNull(new TileEntityResupplyStation().getInventoryName());
+    }
+
     // ---------------------------------------------------------------------------------------------------------
     // Helpers
     // ---------------------------------------------------------------------------------------------------------

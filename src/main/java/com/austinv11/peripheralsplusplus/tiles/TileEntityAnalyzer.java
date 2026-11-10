@@ -58,15 +58,19 @@ public abstract class TileEntityAnalyzer extends MountedTileEntityInventory {
         throws LuaException, InterruptedException {
         if (!Config.enableAnalyzers) throw new LuaException("Analyzers have been disabled");
         switch (method) {
-            case 0:
-                ISpeciesRoot root = getRoot();
+            case 0: {
+                // Check the slot first: resolving the species root is a Forestry registry lookup, and there is no
+                // point doing it for an empty analyzer.
                 ItemStack stack = getStackInSlot(0);
-                if (stack == null || !root.isMember(stack)) return new Object[] { false };
+                if (stack == null) return new Object[] { false };
+                ISpeciesRoot root = getRoot();
+                if (!root.isMember(stack)) return new Object[] { false };
                 IIndividual individual = root.getMember(stack);
                 if (!individual.isAnalyzed()) return new Object[] { null };
                 HashMap<String, Object> ret = new HashMap<String, Object>();
                 addGenome(stack, individual.getGenome(), ret);
                 return new Object[] { ret };
+            }
             case 1:
                 ItemStack specimen = getStackInSlot(0);
                 if (specimen == null || !getRoot().isMember(specimen)) return new Object[] { false };

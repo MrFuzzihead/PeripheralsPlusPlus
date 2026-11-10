@@ -51,7 +51,7 @@ toolchain the plain tasks use.
 
 | Command | What it runs |
 |---|---|
-| `./gradlew test` | 384 headless JUnit 4 tests (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
+| `./gradlew test` | 419 headless JUnit 4 tests (JUnit 4.13.2 + Mockito 4.11.0, Java 8 launcher) |
 | `./gradlew check` | the above plus Spotless, Checkstyle, the coverage floor and the gameTest compile |
 | `./gradlew gameTestServer` | boots a real dedicated server and runs 158 in-game assertions, then exits with the result |
 | `./gradlew runServer25 -PsmokeTest` | boots a real server, prints `PERIPHERALSPLUSPLUS_SMOKE_TEST_OK` and exits |

@@ -134,15 +134,15 @@ tasks.named<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
             limit {
                 counter = "LINE"
                 value = "COVEREDRATIO"
-                // This is a regression guard at the current baseline, not a target. The mod ships 6206 measurable
-                // lines and the suite currently covers ~36.9% line / 29.1% branch. CODE_REVIEW.md section 23 has the
+                // This is a regression guard at the current baseline, not a target. The mod ships 6207 measurable
+                // lines and the suite currently covers ~38.9% line / 31.1% branch. CODE_REVIEW.md section 24 has the
                 // measured ceiling analysis: ~50% is the honest headless target, and most of the rest needs the game.
-                minimum = BigDecimal("0.36")
+                minimum = BigDecimal("0.38")
             }
             limit {
                 counter = "BRANCH"
                 value = "COVEREDRATIO"
-                minimum = BigDecimal("0.28")
+                minimum = BigDecimal("0.30")
             }
         }
     }

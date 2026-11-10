@@ -1450,3 +1450,35 @@ now recorded as facts rather than guesses:
 **~50 % is the honest headless ceiling** (from 36.9 %): about two more batches of this size. Beyond that the only way
 up is attaching JaCoCo to `gameTestServer` (up to ~60 % *and* a real number for the world-facing code), or a
 final-field reflection hack for entities. Recorded here so nobody re-litigates it.
+
+## 24. Appendix N — batch 12 (turning the ceiling analysis into tests)
+
+**Coverage.** 384 → **419** tests in 34 classes; line **36.9 % → 38.9 %**, branch **29.1 % → 31.1 %**; floor raised to
+38 % / 30 %. In-game suite unchanged at 158.
+
+| New / extended test | Covers |
+|---|---|
+| `util/UtilMiscTest` (11) | book NBT, damage attributes, the player-list helpers, `stringToArray`, the 1-based array table |
+| `hooks/ComputerCraftRegistryTest` (7) | pocket upgrade registration: reserved ids, duplicates, the no-ComputerCraft path, `findUpgradeFor` |
+| `tiles/containers/ContainerTest` (5) | the analyzer/sorter/resupply containers: `canInteractWith`, slot indexing, `openInventory` |
+| `tiles/AnalyzerTest` (7) | all three analyzers: method table, public name, the empty-slot branches, the disabled guard |
+| `TileEntitiesTest` (+5) | the sensor's online-player list, the speaker's completion routing, the antenna's offline-player `getHUD`, the station's name |
+
+**Three more real fixes, each found by a test that would not pass otherwise.**
+
+1. **`LuaArgs` treated an explicit `null` element as a present argument.** Lua has no `null`, only `nil`, and a `nil`
+   argument is never passed to Java — so an explicit null must behave as absent. `has()` now returns false for a null
+   element, which also makes `number(0, default)` fall back correctly for Java callers.
+2. **`TileEntityAnalyzer.analyze` resolved the Forestry species root before checking the slot.** That is a registry
+   lookup for nothing on a half-full analyzer, and it made the empty-slot branch untestable. It now mirrors
+   `isMember`: check the slot, then resolve.
+3. **A mocked `Item` cannot be used in an `ItemStack`.** `ItemStack#getItem()` returns `delegate.get()`, and `Item`'s
+   `delegate` is a `final` FML `RegistryDelegate` initialised only on a real instance — so `Mockito.mock(Item.class)`
+   yields a stack whose `getItem()` is **null**, and `isItemEqual`/`getItemDamage` then compare or NPE on null. Two
+   tests were written that way and are now real `Item` subclasses. Worth knowing for anyone extending the suite: **use
+   real items, mock only the inventory/world/turtle around them.**
+
+**Ceiling, unchanged but now better evidenced.** ~50 % headless is still the target: the remaining drivable code is the
+teleporter's link-wand path, `PeripheralXP`'s add/enchant, `TileEntityChatBox`'s listener, the smart-helmet command
+`NBT` bodies and the `TradeHandler` tables — each blocked on an item registry, the ore dictionary or a final field
+rather than on effort. Beyond that, JaCoCo has to run in-game.
